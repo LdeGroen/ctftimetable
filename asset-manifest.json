@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/LdeGroen/ctftimetable.git/static/css/main.e6c13ad2.css",
+    "main.js": "/LdeGroen/ctftimetable.git/static/js/main.1fe45339.js",
+    "index.html": "/LdeGroen/ctftimetable.git/index.html",
+    "main.e6c13ad2.css.map": "/LdeGroen/ctftimetable.git/static/css/main.e6c13ad2.css.map",
+    "main.1fe45339.js.map": "/LdeGroen/ctftimetable.git/static/js/main.1fe45339.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.e6c13ad2.css",
+    "static/js/main.1fe45339.js"
+  ]
+}
