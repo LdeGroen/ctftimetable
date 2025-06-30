@@ -274,11 +274,11 @@ Please note: the performances in the calm route are not low-stimulus. Due to the
         button: 'Reserve a spot'
     },
     privacyPolicyContent: `
-      Privacybeleid voor de Café Theater Festival Timetable App
+      Privacy Policy for the Café Theater Festival Timetable App
 
-      Laatst bijgewerkt: 20 juni 2025
+      Last updated: June 20, 2025
 
-      Welkom bij de Café Theater Festival Timetable App. This app is designed to help you view the festival timetable, mark performances as favorites, set reminders, and add events to your calendar.
+      Welcome to the Café Theater Festival Timetable App. This app is designed to help you view the festival timetable, mark performances as favorites, set reminders, and add events to your calendar.
 
       Your privacy is important to us. This privacy policy describes how we collect, use, and protect information when you use our app.
 
@@ -290,7 +290,7 @@ Please note: the performances in the calm route are not low-stimulus. Due to the
 
       - Favorite Performances: When you mark a performance as a favorite, this information is stored exclusively locally on your device in the browser's local storage (localStorage). This data is not sent to external servers and is only accessible to you on the specific device and in the specific browser with which you set the favorites. If you clear your browser cache or uninstall the app from your device, these favorites may be lost.
 
-      - Notification Permission: The app may ask for your permission to display browser notifications for performance reminders. Your choice (allow or deny) is managed locally by your browser and is not collected or stored by us. We do not send push notifications via a foreign server; all reminders are managed by your device itself.
+      - Notification Permission: The app may ask for your permission to display browser notifications for performance reminders. Your choice (allow or deny) is managed locally by your browser and is not collected or stored by us. We do not send push notifications via an external server; all reminders are managed by your device itself.
 
       - Search Queries: Search terms you enter in the search bar are not stored or sent to an external server. They are only used to filter the timetable locally.
 
@@ -300,7 +300,7 @@ Please note: the performances in the calm route are not low-stimulus. Due to the
 
       4. External Links
 
-      This app contains links to external websites, such as the official Café Theater Festival website and Google Calendar. When you click on these links, you leave our app and are subject to the privacy policies of those other websites. We are not responsible for the privacy practices of other sites.
+      This app contains links to external websites, such as the official Café Theater Festival website and Google Calendar. When you click on these links, you leave our app and are subject to the privacy policies of those external websites. We are not responsible for the privacy practices of other sites.
 
       5. Security
       Since all relevant data is stored locally on your device and no sensitive personal information is processed, the security risks are minimal. We take reasonable measures to ensure the security of the app.
@@ -383,6 +383,10 @@ const TopRightControls = ({ language, handleLanguageChange }) => (
         <a href="https://ldegroen.github.io/ctffotos/" target="_blank" rel="noopener noreferrer" title="Fotogalerij" className="flex items-center justify-center h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50 transition-colors duration-200">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
         </a>
+        {/* Instagram Icon */}
+        <a href="https://www.instagram.com/cafetheaterfestival/" target="_blank" rel="noopener noreferrer" title="Instagram" className="flex items-center justify-center h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50 transition-colors duration-200">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+        </a>
     </div>
 );
 
@@ -407,7 +411,6 @@ const AppHeader = ({ titleRef, translations, language }) => (
 // NIEUW: Sticky Header component
 const StickyHeader = ({ isVisible, uniqueEvents, handleEventClick, handleFavoritesClick, handleBlockTimetableClick, selectedEvent, currentView, language, handleLanguageChange, translations, onLogoClick }) => {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-    // --- WIJZIGING HIER: Ref voor het dropdown menu ---
     const dropdownRef = useRef(null);
     
     let currentSelectionText = translations[language].common.chooseCity;
@@ -419,7 +422,6 @@ const StickyHeader = ({ isVisible, uniqueEvents, handleEventClick, handleFavorit
         currentSelectionText = selectedEvent;
     }
 
-    // --- WIJZIGING HIER: Effect om clicks buiten het menu te detecteren ---
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -427,16 +429,14 @@ const StickyHeader = ({ isVisible, uniqueEvents, handleEventClick, handleFavorit
             }
         };
 
-        // Voeg de event listener toe als het menu open is
         if (isDropdownOpen) {
             document.addEventListener("mousedown", handleClickOutside);
         }
 
-        // Ruim de listener op als de component unmount of als het menu sluit
         return () => {
             document.removeEventListener("mousedown", handleClickOutside);
         };
-    }, [isDropdownOpen]); // Dit effect wordt opnieuw uitgevoerd als isDropdownOpen verandert
+    }, [isDropdownOpen]);
 
     return (
         <div className={`fixed top-0 left-0 right-0 z-40 transition-transform duration-300 ${isVisible ? 'translate-y-0' : '-translate-y-full'}`}>
@@ -451,7 +451,6 @@ const StickyHeader = ({ isVisible, uniqueEvents, handleEventClick, handleFavorit
                         />
                     </div>
                     <div className="flex items-center justify-center">
-                        {/* --- WIJZIGING HIER: Ref gekoppeld aan de container van de dropdown --- */}
                         <div className="relative" ref={dropdownRef}>
                             <button 
                                 onClick={() => setIsDropdownOpen(!isDropdownOpen)} 
@@ -492,6 +491,9 @@ const StickyHeader = ({ isVisible, uniqueEvents, handleEventClick, handleFavorit
                         </button>
                         <a href="https://ldegroen.github.io/ctffotos/" target="_blank" rel="noopener noreferrer" title="Fotogalerij" className="flex items-center justify-center h-8 w-8 rounded-full bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50 transition-colors duration-200">
                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                        </a>
+                        <a href="https://www.instagram.com/cafetheaterfestival/" target="_blank" rel="noopener noreferrer" title="Instagram" className="flex items-center justify-center h-8 w-8 rounded-full bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50 transition-colors duration-200">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
                         </a>
                     </div>
                 </div>
@@ -878,7 +880,7 @@ const TimetableDisplay = ({
   const isAllPerformancesView = selectedDate === 'all-performances';
 
   return (
-    <div className="w-full max-w-6xl">
+    <div className="w-full max-w-6xl mx-auto">
       {displayedData.map((group, index) => (
         <div key={index} className="mb-8">
           {group.groupTitle && (
@@ -893,11 +895,7 @@ const TimetableDisplay = ({
                   {subGroup.subGroupTitle}
                 </h3>
               )}
-              <div
-                className={`grid grid-cols-1 md:grid-cols-2 ${
-                  subGroup.items.length === 2 ? 'lg:grid-cols-2' : 'lg:grid-cols-3'
-                } gap-6 justify-items-center justify-center`}
-              >
+              <div className="flex flex-wrap gap-6 justify-center">
                 {subGroup.items.map((item) => (
                   <PerformanceCard
                     key={item.id}
@@ -1215,49 +1213,70 @@ const App = () => {
   const [showStickyHeader, setShowStickyHeader] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [favoritesViewMode, setFavoritesViewMode] = useState('card');
+  const [animationClass, setAnimationClass] = useState('');
+  const [contentKey, setContentKey] = useState(0);
 
   const titleRef = useRef(null);
   const sponsorRef = useRef(null);
   const notificationTimeouts = useRef({}); 
   
+  const handleNavigation = useCallback((action, isDirectTransition = false) => {
+    if (isDirectTransition) {
+        setAnimationClass('animate-slide-out');
+        setTimeout(() => {
+            action();
+            setContentKey(prev => prev + 1);
+            setAnimationClass('animate-slide-in');
+        }, 300);
+    } else {
+        setIsInitialLoad(true);
+        setTimeout(() => {
+            action();
+            setIsInitialLoad(false);
+            setShowStickyHeader(true);
+        }, 300);
+    }
+  }, []);
+
   const handleEventSelect = useCallback((event) => {
-    setCurrentView('timetable');
-    setSelectedEvent(event);
-    const datesForEvent = timetableData.filter(item => item.event === event && item.date !== 'N/A').map(item => item.date);
-    const firstDateForEvent = [...new Set(datesForEvent)].sort((a, b) => parseDateForSorting(a) - parseDateForSorting(b))[0];
-    setSelectedDate(firstDateForEvent || 'all-performances');
-    setIsInitialLoad(false);
-    setShowStickyHeader(true); // Show header immediately
-  }, [timetableData]);
+    handleNavigation(() => {
+        setCurrentView('timetable');
+        setSelectedEvent(event);
+        const datesForEvent = timetableData.filter(item => item.event === event && item.date !== 'N/A').map(item => item.date);
+        const firstDateForEvent = [...new Set(datesForEvent)].sort((a, b) => parseDateForSorting(a) - parseDateForSorting(b))[0];
+        setSelectedDate(firstDateForEvent || 'all-performances');
+    });
+  }, [timetableData, handleNavigation]);
 
   const handleFavoritesSelect = useCallback(() => {
-    setCurrentView('favorites');
-    setSelectedEvent(null); 
-    setSelectedDate('favorites-view');
-    setIsInitialLoad(false);
-    setShowStickyHeader(true); // Show header immediately
-  }, []);
+    handleNavigation(() => {
+        setCurrentView('favorites');
+        setSelectedEvent(null); 
+        setSelectedDate('favorites-view');
+    });
+  }, [handleNavigation]);
   
   const handleBlockTimetableSelect = useCallback(() => {
-    setCurrentView('block');
-    setSelectedEvent(currentSelectedEvent => {
-      if (currentSelectedEvent) return currentSelectedEvent;
-      if (uniqueEvents.length > 0) return uniqueEvents[0];
-      return null;
+    handleNavigation(() => {
+        setCurrentView('block');
+        if (!selectedEvent && uniqueEvents.length > 0) {
+            setSelectedEvent(uniqueEvents[0]);
+        }
     });
-    setIsInitialLoad(false);
-    setShowStickyHeader(true); // Show header immediately
-  }, [uniqueEvents]);
+  }, [selectedEvent, uniqueEvents, handleNavigation]);
   
   const handleStickyLogoClick = useCallback(() => {
     setIsInitialLoad(true);
     setSelectedEvent(null);
     setSelectedDate(null);
     setSearchTerm('');
-    setShowStickyHeader(false); // Hide header when returning to initial screen
+    setShowStickyHeader(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
+  const handleStickyNav = useCallback((action) => {
+    handleNavigation(action, true);
+  }, [handleNavigation]);
 
   const showMessageBox = useCallback((message, action = null, actionButtonText = '') => {
     setMessageBoxContent(message);
@@ -1656,7 +1675,7 @@ const App = () => {
                   )}
 
                   {currentView === 'block' && (
-                      <BlockTimetable allData={timetableData} favorites={favorites} selectedEvent={selectedEvent} setSelectedEventInBlock={setSelectedEvent} uniqueEvents={uniqueEvents} openContentPopup={openContentPopup} translations={translations} language={language} />
+                      <BlockTimetable allData={timetableData} favorites={favorites} selectedEvent={selectedEvent} setSelectedEventInBlock={(e) => handleStickyNav(() => setSelectedEvent(e))} uniqueEvents={uniqueEvents} openContentPopup={openContentPopup} translations={translations} language={language} />
                   )}
 
                   {currentView === 'favorites' && (
@@ -1696,8 +1715,24 @@ const App = () => {
 
   return (
     <div className="min-h-screen bg-[#20747f] font-sans text-gray-100 flex flex-col items-center relative overflow-x-hidden">
+      <style>{`
+        @keyframes slide-out-up {
+          from { transform: translateY(0); opacity: 1; }
+          to { transform: translateY(-50px); opacity: 0; }
+        }
+        @keyframes slide-in-up {
+          from { transform: translateY(50px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        .animate-slide-out {
+          animation: slide-out-up 0.3s ease-out forwards;
+        }
+        .animate-slide-in {
+          animation: slide-in-up 0.3s ease-out forwards;
+        }
+      `}</style>
       
-      <StickyHeader isVisible={showStickyHeader} uniqueEvents={uniqueEvents} handleEventClick={handleEventSelect} handleFavoritesClick={handleFavoritesSelect} handleBlockTimetableClick={handleBlockTimetableSelect} onLogoClick={handleStickyLogoClick} selectedEvent={selectedEvent} currentView={currentView} language={language} handleLanguageChange={handleLanguageChange} translations={translations} />
+      <StickyHeader isVisible={showStickyHeader} uniqueEvents={uniqueEvents} handleEventClick={(e) => handleStickyNav(() => {setCurrentView('timetable'); setSelectedEvent(e);})} handleFavoritesClick={() => handleStickyNav(() => setCurrentView('favorites'))} handleBlockTimetableClick={() => handleStickyNav(() => setCurrentView('block'))} onLogoClick={handleStickyLogoClick} selectedEvent={selectedEvent} currentView={currentView} language={language} handleLanguageChange={handleLanguageChange} translations={translations} />
       
       <div className="w-full flex-grow relative">
 
@@ -1729,7 +1764,7 @@ const App = () => {
 
         {/* Main Content View */}
         <div className={`absolute inset-0 transition-all duration-1000 ease-in-out ${isInitialLoad ? 'translate-y-full opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'}`}>
-          <div id="main-content-area" className={`w-full h-full overflow-y-auto p-4 sm:p-6 md:p-8 ${showStickyHeader ? 'pt-24 sm:pt-20' : ''}`}>
+          <div key={contentKey} id="main-content-area" className={`w-full h-full overflow-y-auto p-4 sm:p-6 md:p-8 ${showStickyHeader ? 'pt-24 sm:pt-20' : ''} ${animationClass}`}>
             {renderMainContent()}
           </div>
         </div>
