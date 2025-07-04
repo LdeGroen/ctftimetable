@@ -2,43 +2,52 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 
 // Functie om datumstring te parsen naar een Date-object voor vergelijking en weergave
 const parseDateForSorting = (dateString) => {
-  if (!dateString) return new Date(NaN);
+  if (!dateString || typeof dateString !== 'string') return new Date(NaN);
+  
+  const trimmedDateString = dateString.trim();
   let day, month, year;
 
-  let [d, m, y] = String(dateString).split('-');
+  let [d, m, y] = trimmedDateString.split('-');
   if (d && m && y && !isNaN(parseInt(m, 10))) {
     day = parseInt(d, 10);
     month = parseInt(m, 10);
     year = parseInt(y, 10);
     return new Date(Date.UTC(year, month - 1, day));
   }
-
+  
   const monthNames = {
-    'januari': 1, 'februari': 2, 'maart': 3, 'april': 4, 'mei': 5, 'juni': 6,
-    'juli': 7, 'augustus': 8, 'september': 9, 'oktober': 10, 'november': 11, 'december': 12
-  };
-  const monthNamesAbbr = {
-    'jan': 1, 'feb': 2, 'mrt': 3, 'apr': 4, 'mei': 5, 'jun': 6,
-    'jul': 7, 'aug': 8, 'sep': 9, 'okt': 10, 'nov': 11, 'dec': 12
+    'januari': 1, 'jan': 1,
+    'februari': 2, 'feb': 2,
+    'maart': 3, 'mrt': 3,
+    'april': 4, 'apr': 4,
+    'mei': 5,
+    'juni': 6, 'jun': 6,
+    'juli': 7, 'jul': 7,
+    'augustus': 8, 'aug': 8,
+    'september': 9, 'sep': 9,
+    'oktober': 10, 'okt': 10,
+    'november': 11, 'nov': 11,
+    'december': 12, 'dec': 12
   };
 
-  const parts = String(dateString).split(' ');
-  if (parts.length === 3) {
+  const parts = trimmedDateString.split(' ');
+  if (parts.length === 3 && parts[1]) {
     day = parseInt(parts[0], 10);
-    let monthNum = monthNames[parts[1]?.toLowerCase()] || monthNamesAbbr[parts[1]?.toLowerCase()];
+    const monthNum = monthNames[parts[1].toLowerCase()];
     year = parseInt(parts[2], 10);
     if (!isNaN(day) && monthNum && !isNaN(year)) {
       return new Date(Date.UTC(year, monthNum - 1, day));
     }
   }
 
-  const parsedDate = new Date(dateString);
+  const parsedDate = new Date(trimmedDateString);
   if (!isNaN(parsedDate.getTime())) {
       return new Date(Date.UTC(parsedDate.getUTCFullYear(), parsedDate.getUTCMonth(), parsedDate.getUTCDate()));
   }
 
   return new Date(NaN);
 };
+
 
 // Vertalingen voor de app
 const translations = {
@@ -47,7 +56,7 @@ const translations = {
       timetable: 'Timetable',
       blockTimetable: 'Blokkenschema',
       favorites: 'Favorieten',
-      searchPlaceholder: 'Zoek in alle voorstellingen...',
+      searchPlaceholder: 'Zoek op artiest, titel of locatie...',
       moreDates: 'Meer dagen',
       lessDates: 'Minder dagen',
       loading: 'Timetable wordt ingeladen...',
@@ -58,8 +67,8 @@ const translations = {
       noSearchResults: 'Geen resultaten gevonden voor \'%s\'.',
       noDataFound: 'Geen dienstregelinggegevens gevonden voor %s.',
       moreInfo: 'Meer info',
-      addToFavorites: 'Voeg toe aan favorieten',
-      removeFromFavorites: 'Verwijder van favorieten',
+      addToFavorites: 'Voeg toe aan favorieten (ontvang herinnering)',
+      removeFromFavorites: 'Verwijder van favorieten (annuleer herinnering)',
       getNotifications: 'Ontvang notificaties',
       stopNotifications: 'Stop notificaties',
       addToGoogleCalendar: 'Voeg toe aan Google Agenda',
@@ -91,6 +100,7 @@ const translations = {
       donateButton: 'Klik hier!',
       crowdLevel: 'Verwachte drukte:',
       genre: 'Genre',
+      location: 'Locatie',
       crowdLevelGreen: 'De verwachtte drukte bij deze voorstelling is normaal. Als je op tijd komt kun je waarschijnlijk een zitplekje vinden',
       crowdLevelOrange: 'De verwachtte drukte bij deze voorstelling is druk. We verwachten dat een deel van het publiek moet staan bij deze voorstelling om het goed te kunnen zien',
       crowdLevelRed: 'De verwachtte drukte bij deze voorstelling is erg druk. Kom op tijd, want het zou zo maar kunnen dat deze voorstelling vol raakt',
@@ -102,15 +112,24 @@ const translations = {
       shareSuccess: 'Link gekopieerd naar klembord!',
       shareError: 'Delen mislukt.',
       shareBody: 'Bekijk deze voorstelling: %s op het Café Theater Festival!',
-      exactAlarmPermissionNeededTitle: 'Notificaties werken mogelijk niet',
-      exactAlarmPermissionNeededBody: 'Voor betrouwbare notificaties is de "Wekkers en herinneringen" permissie nodig. Schakel deze handmatig in via de app-instellingen.',
-      openSettings: 'Open instellingen',
+      exactAlarmPermissionNeededTitle: 'Notificaties instellen',
+      exactAlarmPermissionNeededBody: 'Voor betrouwbare herinneringen heeft de app de permissie "Wekkers en herinneringen" nodig. Schakel deze in voor de beste ervaring.',
+      openSettings: 'Instellingen',
       mapTitle: 'Kaart %s',
       allPerformances: 'Alle voorstellingen',
       calmRoute: 'Rustige route',
       proudMainSponsor: 'Is trotse hoofdsponsor van %s',
       chooseCity: 'Kies stad',
       cardView: 'Voorstellingen', 
+      geannuleerd: 'Geannuleerd',
+      vol: 'Vol',
+      tooltipCrowdLevelCancelled: 'Deze voorstelling is helaas geannuleerd.',
+      cancellationNotificationTitle: 'Voorstelling Geannuleerd',
+      cancellationNotificationBody: 'Let op: %s is geannuleerd. Kijk in de app voor een alternatief!',
+      fullNotificationTitle: 'Voorstelling Vol',
+      fullNotificationBody: 'Let op: %s is nu vol. Kijk in de app voor een alternatief!',
+      dontAskAgain: 'Niet meer vragen',
+      later: 'Later'
     },
     payWhatYouCan: {
       title: "Pay What You Can",
@@ -136,56 +155,53 @@ Let op: de voorstellingen in de rustige route zijn niet prikkel-arm. Vanwege het
       button: 'Reserveer een plekje'
     },
     privacyPolicyContent: `
-      Privacybeleid voor de Café Theater Festival Timetable App
+      **Privacybeleid voor de Café Theater Festival Timetable App**
 
-      Laatst bijgewerkt: 20 juni 2025
+      *Laatst bijgewerkt: 30 juni 2025*
 
       Welkom bij de Café Theater Festival Timetable App. Deze app is ontworpen om u te helpen de timetable van het festival te bekijken, voorstellingen als favoriet te markeren, herinneringen in te stellen en evenementen aan uw agenda toe te voegen.
 
       Uw privacy is belangrijk voor ons. Dit privacybeleid beschrijft hoe wij informatie verzamelen, gebruiken en beschermen wanneer u onze app gebruikt.
 
-      1. Welke Informatie Verzamelen Wij?
+      **1. Welke Informatie Verzamelen Wij?**
 
-      Deze app is een statische webapplicatie die uitsluitend lokaal in uw browser (of via een WebView op Android) draait.
+      Deze app is een statische webapplicatie die uitsluitend lokaal in uw browser (of via een WebView op Android) draait. Wij verzamelen geen persoonlijk identificeerbare informatie.
 
-      Wij verzamelen de volgende niet-persoonlijke informatie:
+      - **Favoriete Voorstellingen**: Wanneer u een voorstelling als favoriet markeert, wordt deze informatie uitsluitend lokaal opgeslagen op uw apparaat in de lokale opslag van de browser (localStorage). Deze gegevens worden niet naar externe servers verzonden en zijn alleen toegankelijk voor u.
+      - **Notificatietoestemming**: De app kan u om toestemming vragen om browsernotificaties te tonen voor herinneringen aan voorstellingen. Uw keuze wordt lokaal door uw browser beheerd en niet door ons verzameld of opgeslagen.
+      - **Zoekopdrachten**: Zoektermen die u invoert, worden niet opgeslagen of verzonden. Ze worden alleen gebruikt om lokaal de timetable te filteren.
 
-      - Favoriete Voorstellingen: Wanneer u een voorstelling als favoriet markeert, wordt deze informatie uitsluitend lokaal opgeslagen op uw apparaat in de browser's lokale opslag (localStorage). Deze gegevens worden niet naar externe servers verzonden en zijn alleen toegankelijk voor u op het specifieke apparaat en in de specifieke browser waarmee u de favorieten heeft ingesteld. Als u de browsercache wist of de app van uw apparaat verwijdert, kunnen deze favorieten verloren gaan.
+      **2. Hoe Gebruiken Wij Uw Informatie?**
 
-      - Notificatietoestemming: De app kan u om toestemming vragen om browsernotificaties te tonen voor herinneringen aan voorstellingen. Uw keuze (toestaan of weigeren) wordt lokaal door uw browser beheerd en niet door ons verzameld of opgeslagen. Wij verzenden geen pushnotificaties via een externe server; alle herinneringen worden door uw apparaat zelf beheerd.
+      De lokaal opgeslagen informatie wordt alleen gebruikt om u een gepersonaliseerde ervaring binnen de app te bieden.
 
-      - Zoekopdrachten: Zoektermen die u invoert in de zoekbalk worden niet opgeslagen of verzonden naar externe servers. Ze worden alleen gebruikt om lokaal de timetable te filteren.
+      **3. Delen van Uw Informatie**
 
-      2. Hoe Gebruiken Wij Uw Informatie?
+      Wij delen uw informatie met niemand. Aangezien we geen persoonlijke informatie verzamelen, is er geen informatie om te delen.
 
-      De lokaal opgeslagen informatie (favoriete voorstellingen) wordt alleen gebruikt om u een gepersonaliseerde ervaring binnen de app te bieden, zodat u gemakkelijk uw geselecteerde voorstellingen kunt terugvinden.
+      **4. Externe Links**
 
-      3. Delen van Uw Informatie
+      Deze app bevat links naar externe websites (bijv. Google Calendar). Wanneer u op deze links klikt, verlaat u onze app. Wij zijn niet verantwoordelijk voor het privacybeleid van andere websites.
 
-      Wij delen uw informatie met niemand. Aangezien we geen persoonlijke informatie verzamelen of opslaan, is er ook geen informatie om te delen met derden.
+      **5. Beveiliging**
 
-      4. Externe Links
+      Aangezien alle relevante gegevens lokaal op uw apparaat worden opgeslagen, zijn de beveiligingsrisico's minimaal.
 
-      Deze app bevat links naar externe websites, zoals de officiële website van het Café Theater Festival en Google Calendar. Wanneer u op deze links klikt, verlaat u onze app en bent u onderhevig aan het privacybeleid van die andere websites. Wij zijn niet verantwoordelijk voor de privacypraktijken van andere websites.
+      **6. Wijzigingen in Dit Privacybeleid**
 
-      5. Beveiliging
-      Aangezien alle relevante gegevens lokaal op uw apparaat worden opgeslagen en er geen gevoelige persoonlijke informatie wordt verwerkt, zijn de beveiligingsrisico's minimaal. Wij nemen redelijke maatregelen om de veiligheid van de app te waarborgen.
+      We kunnen dit privacybeleid van tijd tot tijd bijwerken. Wijzigingen zijn onmiddellijk van kracht nadat ze in de app zijn geplaatst.
 
-      6. Wijzigingen in Dit Privacybeleid
-      We kunnen ons privacybeleid van tijd tot tijd bijwerken. Wijzigingen zijn onmiddellijk van kracht nadat ze in de app zijn geplaatst. Wij raden u aan dit privacybeleid regelmatig te raadplegen voor eventuele wijzigingen.
+      **7. Contact Met Ons Opnemen**
 
-      7. Contact Met Ons Opnemen
-      Als u vragen heeft over dit privacybeleid, kunt u contact met ons opnemen via:
-
-      Info@cafetheaterfestival.nl
-    `,
+      Als u vragen heeft over dit privacybeleid, kunt u contact met ons opnemen via: Info@cafetheaterfestival.nl
+    `
   },
   en: {
     common: {
       timetable: 'Timetable',
       blockTimetable: 'Block Schedule',
       favorites: 'Favorites',
-      searchPlaceholder: 'Search all performances...',
+      searchPlaceholder: 'Search by artist, title, or location...',
       moreDates: 'More days',
       lessDates: 'Fewer days',
       loading: 'Timetable is loading...',
@@ -196,8 +212,8 @@ Let op: de voorstellingen in de rustige route zijn niet prikkel-arm. Vanwege het
       noSearchResults: 'No results found for \'%s\'.',
       noDataFound: 'No timetable data found for %s.',
       moreInfo: 'More Info',
-      addToFavorites: 'Add to favorites',
-      removeFromFavorites: 'Remove from favorites',
+      addToFavorites: 'Add to favorites (get reminder)',
+      removeFromFavorites: 'Remove from favorites (cancel reminder)',
       getNotifications: 'Get Notifications',
       stopNotifications: 'Stop Notifications',
       addToGoogleCalendar: 'Add to Google Calendar',
@@ -229,6 +245,7 @@ Let op: de voorstellingen in de rustige route zijn niet prikkel-arm. Vanwege het
       donateButton: 'Click here!',
       crowdLevel: 'Expected crowd:',
       genre: 'Genre',
+      location: 'Location',
       crowdLevelGreen: 'The expected crowd for this performance is normal. If you arrive on time, you will probably find a seat',
       crowdLevelOrange: 'The expected crowd for this performance is busy. We expect some of the audience to stand to see it well',
       crowdLevelRed: 'The expected crowd for this performance is very busy. Arrive on time, as this performance might fill up',
@@ -240,15 +257,24 @@ Let op: de voorstellingen in de rustige route zijn niet prikkel-arm. Vanwege het
       shareSuccess: 'Link copied to clipboard!',
       shareError: 'Share failed.',
       shareBody: 'Check out this performance: %s at the Café Theater Festival!',
-      exactAlarmPermissionNeededTitle: 'Notifications may not work',
-      exactAlarmPermissionNeededBody: 'For reliable notifications, the "Alarms & reminders" permission is required. Please enable it manually in the app settings.',
-      openSettings: 'Open settings',
+      exactAlarmPermissionNeededTitle: 'Set up Notifications',
+      exactAlarmPermissionNeededBody: 'For reliable reminders, the app needs the "Alarms & reminders" permission. Please enable it for the best experience.',
+      openSettings: 'Settings',
       mapTitle: 'Map %s',
       allPerformances: 'All performances',
       calmRoute: 'Calm Route',
       proudMainSponsor: 'Is proud main sponsor of %s',
       chooseCity: 'Choose city',
       cardView: 'Performances',
+      geannuleerd: 'Cancelled',
+      vol: 'Full',
+      tooltipCrowdLevelCancelled: 'This performance has been cancelled.',
+      cancellationNotificationTitle: 'Performance Cancelled',
+      cancellationNotificationBody: 'Please note: %s has been cancelled. Check the app for an alternative!',
+      fullNotificationTitle: 'Performance Full',
+      fullNotificationBody: 'Please note: %s is now full. Check the app for an alternative!',
+      dontAskAgain: 'Don\'t ask again',
+      later: 'Later'
     },
     payWhatYouCan: {
       title: "Pay What You Can",
@@ -274,45 +300,46 @@ Please note: the performances in the calm route are not low-stimulus. Due to the
         button: 'Reserve a spot'
     },
     privacyPolicyContent: `
-      Privacy Policy for the Café Theater Festival Timetable App
+      **Privacy Policy for the Café Theater Festival Timetable App**
 
-      Last updated: June 20, 2025
+      *Last updated: June 30, 2025*
 
       Welcome to the Café Theater Festival Timetable App. This app is designed to help you view the festival timetable, mark performances as favorites, set reminders, and add events to your calendar.
 
       Your privacy is important to us. This privacy policy describes how we collect, use, and protect information when you use our app.
 
-      1. What Information Do We Collect?
+      **1. What Information Do We Collect?**
 
-      This app is a static web application that runs exclusively locally in your browser (or via a WebView on Android).
+      This app is a static web application that runs exclusively locally in your browser (or via a WebView on Android). We do not collect any personally identifiable information.
 
-      We collect the following non-personal information:
+      - **Favorite Performances**: When you mark a performance as a favorite, this information is stored exclusively locally on your device in the browser's local storage (localStorage). This data is not sent to external servers and is only accessible to you.
+      - **Notification Permission**: The app may ask for your permission to display browser notifications for performance reminders. Your choice is managed locally by your browser and is not collected or stored by us.
+      - **Search Queries**: Search terms you enter are not stored or sent. They are only used to filter the timetable locally.
 
-      - Favorite Performances: When you mark a performance as a favorite, this information is stored exclusively locally on your device in the browser's local storage (localStorage). This data is not sent to external servers and is only accessible to you on the specific device and in the specific browser with which you set the favorites. If you clear your browser cache or uninstall the app from your device, these favorites may be lost.
+      **2. How Do We Use Your Information?**
 
-      - Notification Permission: The app may ask for your permission to display browser notifications for performance reminders. Your choice (allow or deny) is managed locally by your browser and is not collected or stored by us. We do not send push notifications via an external server; all reminders are managed by your device itself.
+      The locally stored information is only used to provide you with a personalized experience within the app.
 
-      - Search Queries: Search terms you enter in the search bar are not stored or sent to an external server. They are only used to filter the timetable locally.
+      **3. Sharing Your Information**
 
-      3. Sharing Your Information
+      We do not share your information with anyone. Since we do not collect any personal information, there is no information to share.
 
-      We do not share your information with anyone. Since we do not collect or store any personal information, there is no information to share with third parties.
+      **4. External Links**
 
-      4. External Links
+      This app contains links to external websites (e.g., Google Calendar). When you click these links, you leave our app. We are not responsible for the privacy practices of other websites.
 
-      This app contains links to external websites, such as the official Café Theater Festival website and Google Calendar. When you click on these links, you leave our app and are subject to the privacy policies of those external websites. We are not responsible for the privacy practices of other sites.
+      **5. Security**
 
-      5. Security
-      Since all relevant data is stored locally on your device and no sensitive personal information is processed, the security risks are minimal. We take reasonable measures to ensure the security of the app.
+      Since all relevant data is stored locally on your device, the security risks are minimal.
 
-      6. Changes to This Privacy Policy
-      We may update our privacy policy from time to time. Changes are effective immediately after they are posted in the app. We encourage you to review this privacy policy periodically for any changes.
+      **6. Changes to This Privacy Policy**
 
-      7. Contact Us
-      If you have any questions about this privacy policy, you can contact us at:
+      We may update this privacy policy from time to time. Changes are effective immediately after being posted in the app.
 
-      Info@cafetheaterfestival.nl
-    `,
+      **7. Contact Us**
+
+      If you have questions about this privacy policy, you can contact us at: Info@cafetheaterfestival.nl
+    `
   },
 };
 
@@ -372,70 +399,36 @@ const renderGenericPopupText = (content, language, translations) => {
 // Component for the top-right controls that are always visible initially
 const TopRightControls = ({ language, handleLanguageChange }) => (
     <div className="absolute top-12 right-4 z-10 flex flex-row items-center space-x-2">
-        {/* Language Switcher */}
-        <button
-            onClick={handleLanguageChange}
-            className="px-3 py-1 h-8 sm:h-10 rounded-full bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50 transition-colors duration-200 text-sm font-semibold"
-        >
+        <button onClick={handleLanguageChange} className="px-3 py-1 h-8 sm:h-10 rounded-full bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50 transition-colors duration-200 text-sm font-semibold">
             {language === 'nl' ? 'EN' : 'NL'}
         </button>
-        {/* Photo Gallery Icon */}
-        <a href="https://ldegroen.github.io/ctffotos/" target="_blank" rel="noopener noreferrer" title="Fotogalerij" className="flex items-center justify-center h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50 transition-colors duration-200">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-        </a>
-        {/* Instagram Icon */}
-        <a href="https://www.instagram.com/cafetheaterfestival/" target="_blank" rel="noopener noreferrer" title="Instagram" className="flex items-center justify-center h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50 transition-colors duration-200">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
-        </a>
     </div>
 );
 
 
-// Component for the app-header (logo, titel, taalwisselaar, privacybeleid)
+// Component voor de app-header (logo, titel, taalwisselaar, privacybeleid)
 const AppHeader = ({ titleRef, translations, language }) => (
   <div className="flex flex-col items-center w-full pt-16">
-    {/* [Afbeelding van Café Theater Festival Logo in wit] */}
-    <img
-      src="https://cafetheaterfestival.nl/wp-content/uploads/2025/06/Logo_Web_Trans_Wit.png"
-      alt="[Afbeelding van Café Theater Festival Logo in wit]"
-      className="w-full max-w-[10rem] h-auto mb-4"
-    />
-
-    {/* Titel van de app */}
-    <h1 ref={titleRef} className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-8 text-center drop_shadow-lg font-oswald">
-      {translations[language].common.timetable}
-    </h1>
+    <img src="https://cafetheaterfestival.nl/wp-content/uploads/2025/06/Logo_Web_Trans_Wit.png" alt="[Afbeelding van Café Theater Festival Logo]" className="w-full max-w-[10rem] h-auto mb-4"/>
+    <h1 ref={titleRef} className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-8 text-center drop_shadow-lg font-oswald">{translations[language].common.timetable}</h1>
   </div>
 );
 
-// NIEUW: Sticky Header component
-const StickyHeader = ({ isVisible, uniqueEvents, handleEventClick, handleFavoritesClick, handleBlockTimetableClick, selectedEvent, currentView, language, handleLanguageChange, translations, onLogoClick }) => {
+// Sticky Header component
+const StickyHeader = ({ isVisible, uniqueEvents, handleEventClick, handleFavoritesClick, selectedEvent, currentView, language, handleLanguageChange, translations, onLogoClick }) => {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
     
     let currentSelectionText = translations[language].common.chooseCity;
-    if (currentView === 'favorites') {
-        currentSelectionText = translations[language].common.favorites;
-    } else if (currentView === 'block') {
-        currentSelectionText = translations[language].common.blockTimetable;
-    } else if (selectedEvent) {
-        currentSelectionText = selectedEvent;
-    }
+    if (currentView === 'favorites') currentSelectionText = translations[language].common.favorites;
+    else if (selectedEvent) currentSelectionText = selectedEvent;
 
     useEffect(() => {
         const handleClickOutside = (event) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-                setIsDropdownOpen(false);
-            }
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) setIsDropdownOpen(false);
         };
-
-        if (isDropdownOpen) {
-            document.addEventListener("mousedown", handleClickOutside);
-        }
-
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
+        if (isDropdownOpen) document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [isDropdownOpen]);
 
     return (
@@ -443,58 +436,26 @@ const StickyHeader = ({ isVisible, uniqueEvents, handleEventClick, handleFavorit
             <div className="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
                 <div className="relative flex h-24 sm:h-20 items-end justify-center bg-black/20 backdrop-blur-md rounded-b-xl px-4 shadow-lg pb-2">
                     <div className="absolute left-4 bottom-2">
-                       <img 
-                            onClick={onLogoClick}
-                            className="h-16 w-auto cursor-pointer" 
-                            src="https://cafetheaterfestival.nl/wp-content/uploads/2025/06/fav-wit-1.png" 
-                            alt="[Afbeelding van Café Theater Festival Logo in wit]"
-                        />
+                       <img onClick={onLogoClick} className="h-16 w-auto cursor-pointer" src="https://cafetheaterfestival.nl/wp-content/uploads/2025/06/fav-wit-1.png" alt="[Afbeelding van CTF Logo Favicon]"/>
                     </div>
                     <div className="flex items-center justify-center">
                         <div className="relative" ref={dropdownRef}>
-                            <button 
-                                onClick={() => setIsDropdownOpen(!isDropdownOpen)} 
-                                className="inline-flex justify-center w-full rounded-md border border-gray-500 shadow-sm px-4 py-2 bg-white/30 text-sm font-medium text-white hover:bg-white/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-white"
-                            >
+                            <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="inline-flex justify-center w-full rounded-md border border-gray-500 shadow-sm px-4 py-2 bg-white/30 text-sm font-medium text-white hover:bg-white/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-white">
                                 {currentSelectionText}
-                                <svg className="-mr-1 ml-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                                </svg>
+                                <svg className="-mr-1 ml-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                             </button>
                             {isDropdownOpen && (
-                                <div 
-                                    className="origin-top-right absolute right-1/2 translate-x-1/2 mt-2 w-56 rounded-md shadow-lg bg-[#1a5b64] ring-1 ring-black ring-opacity-5 focus:outline-none"
-                                >
+                                <div className="origin-top-right absolute right-1/2 translate-x-1/2 mt-2 w-56 rounded-md shadow-lg bg-[#1a5b64] ring-1 ring-black ring-opacity-5 focus:outline-none">
                                     <div className="py-1" role="menu" aria-orientation="vertical">
-                                        {uniqueEvents.map(event => (
-                                            <a href="#" key={event} onClick={(e) => { e.preventDefault(); handleEventClick(event); setIsDropdownOpen(false); }} className="block px-4 py-2 text-sm text-white hover:bg-[#20747f] text-center" role="menuitem">
-                                                {event}
-                                            </a>
-                                        ))}
-                                         <a href="#" onClick={(e) => { e.preventDefault(); handleFavoritesClick(); setIsDropdownOpen(false); }} className="block px-4 py-2 text-sm text-white hover:bg-[#20747f] text-center border-t border-white/20" role="menuitem">
-                                            {translations[language].common.favorites}
-                                        </a>
-                                        <a href="#" onClick={(e) => { e.preventDefault(); handleBlockTimetableClick(); setIsDropdownOpen(false); }} className="block px-4 py-2 text-sm text-white hover:bg-[#20747f] text-center border-t border-white/20" role="menuitem">
-                                            {translations[language].common.blockTimetable}
-                                        </a>
+                                        {uniqueEvents.map(event => (<a href="#" key={event} onClick={(e) => { e.preventDefault(); handleEventClick(event); setIsDropdownOpen(false); }} className="block px-4 py-2 text-sm text-white hover:bg-[#20747f] text-center" role="menuitem">{event}</a>))}
+                                        <a href="#" onClick={(e) => { e.preventDefault(); handleFavoritesClick(); setIsDropdownOpen(false); }} className="block px-4 py-2 text-sm text-white hover:bg-[#20747f] text-center border-t border-white/20" role="menuitem">{translations[language].common.favorites}</a>
                                     </div>
                                 </div>
                             )}
                         </div>
                     </div>
                      <div className="absolute right-4 bottom-2 flex items-center space-x-2">
-                        <button
-                            onClick={handleLanguageChange}
-                            className="px-3 py-1 h-8 rounded-full bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50 transition-colors duration-200 text-xs font-semibold"
-                        >
-                            {language === 'nl' ? 'EN' : 'NL'}
-                        </button>
-                        <a href="https://ldegroen.github.io/ctffotos/" target="_blank" rel="noopener noreferrer" title="Fotogalerij" className="flex items-center justify-center h-8 w-8 rounded-full bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50 transition-colors duration-200">
-                           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                        </a>
-                        <a href="https://www.instagram.com/cafetheaterfestival/" target="_blank" rel="noopener noreferrer" title="Instagram" className="flex items-center justify-center h-8 w-8 rounded-full bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50 transition-colors duration-200">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
-                        </a>
+                        <button onClick={handleLanguageChange} className="px-3 py-1 h-8 rounded-full bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50 transition-colors duration-200 text-xs font-semibold">{language === 'nl' ? 'EN' : 'NL'}</button>
                     </div>
                 </div>
             </div>
@@ -504,183 +465,87 @@ const StickyHeader = ({ isVisible, uniqueEvents, handleEventClick, handleFavorit
 
 
 // Component voor de evenementnavigatiebalk op het startscherm
-const EventNavigation = ({ onEventSelect, onFavoritesSelect, onBlockTimetableSelect, uniqueEvents, language, translations, refProp }) => (
+const EventNavigation = ({ onEventSelect, onFavoritesSelect, uniqueEvents, language, translations, refProp }) => (
     <div ref={refProp} className="flex flex-wrap justify-center gap-4 mb-8 p-3 max-w-full">
         {uniqueEvents.map(event => (
-            <button
-                key={event}
-                onClick={() => onEventSelect(event)}
-                className="px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-200 bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50"
-            >
-                {event}
-            </button>
+            <button key={event} onClick={() => onEventSelect(event)} className="px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-200 bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50">{event}</button>
         ))}
-        <button
-            onClick={onFavoritesSelect}
-            className="px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-200 bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50"
-        >
-            {translations[language].common.favorites}
-        </button>
-        <button
-            onClick={onBlockTimetableSelect}
-            className="px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-200 bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50"
-        >
-            {translations[language].common.blockTimetable}
-        </button>
+        <button onClick={onFavoritesSelect} className="px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-200 bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50">{translations[language].common.favorites}</button>
     </div>
 );
 
 // Component voor de datumnavigatiebalk
-const DateNavigation = ({
-  loading, error, datesForCurrentSelectedEvent, visibleDatesForEvent, hiddenDatesForEvent,
-  showMoreDates, setShowMoreDates, selectedDate, setSelectedDate, setSearchTerm, translations, language, currentView,
-  timetableData, selectedEvent
-}) => {
-    const hasCalmRoutePerformances = useMemo(() => {
-        if (!selectedEvent || !timetableData) return false;
-        return timetableData.some(item => item.event === selectedEvent && item.isCalmRoute);
-    }, [timetableData, selectedEvent]);
+const DateNavigation = ({ datesForCurrentSelectedEvent, selectedDate, setSelectedDate, setSearchTerm, translations, language, selectedEvent, timetableData }) => {
+    const hasCalmRoutePerformances = useMemo(() => 
+        timetableData.some(item => item.event === selectedEvent && item.isCalmRoute),
+        [timetableData, selectedEvent]
+    );
     
     return (
-      <>
-        {currentView === 'timetable' && !loading && !error && datesForCurrentSelectedEvent.length > 0 && (
-          <div className="flex flex-wrap justify-center gap-2 sm:gap-3 md:gap-4 mb-8 p-3 bg-white bg-opacity-20 rounded-xl shadow-lg max-w-full overflow-x-auto scrollbar-hide">
-            {/* Alle Voorstellingen Knop */}
-            <button
-              onClick={() => { setSelectedDate('all-performances'); setSearchTerm(''); }}
-              className={`px-4 py-2 rounded-lg font-semibold transition-all duration-200 ${
-                selectedDate === 'all-performances'
-                  ? 'bg-[#1a5b64] text-white shadow-md'
-                  : 'bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50'
-              }`}
-            >
-              {translations[language].common.allPerformances}
-            </button>
-            
-            {/* Toon de datums */}
-            {visibleDatesForEvent.map(date => (
-              <button
-                key={date}
-                onClick={() => { setSelectedDate(date); setSearchTerm(''); }}
-                className={`px-4 py-2 rounded-lg font-semibold transition-all duration-200 ${
-                  selectedDate === date
-                    ? 'bg-[#1a5b64] text-white shadow-md'
-                    : 'bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50'
-                }`}
-              >
-                {date}
-              </button>
-            ))}
-            {showMoreDates && hiddenDatesForEvent.map(date => (
-               <button
-                 key={date}
-                 onClick={() => { setSelectedDate(date); setSearchTerm(''); }}
-                 className={`px-4 py-2 rounded-lg font-semibold transition-all duration-200 ${
-                   selectedDate === date
-                     ? 'bg-[#1a5b64] text-white shadow-md'
-                     : 'bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50'
-                 }`}
-               >
-                 {date}
-               </button>
-            ))}
-            {hiddenDatesForEvent.length > 0 && (
-              <button
-                onClick={() => setShowMoreDates(!showMoreDates)}
-                className="px-4 py-2 rounded-lg font-semibold bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50 transition-all duration-200"
-              >
-                {showMoreDates ? translations[language].common.lessDates : translations[language].common.moreDates}
-              </button>
-            )}
-            {/* Rustige Route Knop */}
-            {hasCalmRoutePerformances && (
-                <button
-                    onClick={() => { setSelectedDate('calm-route'); setSearchTerm(''); }}
-                    className={`px-4 py-2 rounded-lg font-semibold transition-all duration-200 ${
-                        selectedDate === 'calm-route'
-                        ? 'bg-[#1a5b64] text-white shadow-md'
-                        : 'bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50'
-                    }`}
-                >
-                    {translations[language].common.calmRoute}
-                </button>
-            )}
-          </div>
-        )}
-      </>
+        <div className="flex flex-wrap justify-center gap-2 sm:gap-3 md:gap-4 mb-8 p-3 bg-white bg-opacity-20 rounded-xl shadow-lg max-w-full overflow-x-auto scrollbar-hide">
+            <button onClick={() => { setSelectedDate('all-performances'); setSearchTerm(''); }} className={`px-4 py-2 rounded-lg font-semibold transition-all duration-200 ${selectedDate === 'all-performances' ? 'bg-[#1a5b64] text-white shadow-md' : 'bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50'}`}>{translations[language].common.allPerformances}</button>
+            {datesForCurrentSelectedEvent.map(date => (<button key={date} onClick={() => { setSelectedDate(date); setSearchTerm(''); }} className={`px-4 py-2 rounded-lg font-semibold transition-all duration-200 ${selectedDate === date ? 'bg-[#1a5b64] text-white shadow-md' : 'bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50'}`}>{date}</button>))}
+            {hasCalmRoutePerformances && (<button onClick={() => { setSelectedDate('calm-route'); setSearchTerm(''); }} className={`px-4 py-2 rounded-lg font-semibold transition-all duration-200 ${selectedDate === 'calm-route' ? 'bg-[#1a5b64] text-white shadow-md' : 'bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50'}`}>{translations[language].common.calmRoute}</button>)}
+        </div>
     );
 };
 
-// Nieuw component voor het tonen van de sponsor
+// SponsorDisplay component
 const SponsorDisplay = React.forwardRef(({ sponsorInfo, language, translations }, ref) => {
-    if (!sponsorInfo || !sponsorInfo.logoUrl) {
-        return <div ref={ref} className="h-12"></div>; // Placeholder to maintain space
-    }
+    if (!sponsorInfo || !sponsorInfo.logoUrl) return <div ref={ref} className="h-12"></div>;
 
     return (
         <div ref={ref} className="flex flex-col items-center justify-center mt-12 mb-8 text-center">
-            <img 
-                src={sponsorInfo.logoUrl} 
-                alt={`[Afbeelding van Hoofdsponsor logo ${sponsorInfo.eventName}]`}
-                className="max-h-20 w-auto object-contain mb-2"
-            />
-            <p className="text-white text-lg font-semibold">
-                {translations[language].common.proudMainSponsor.replace('%s', sponsorInfo.eventName)}
-            </p>
+            <img src={sponsorInfo.logoUrl} alt={`[Afbeelding van Logo ${sponsorInfo.eventName}]`} className="max-h-20 w-auto object-contain mb-2"/>
+            <p className="text-white text-lg font-semibold">{translations[language].common.proudMainSponsor.replace('%s', sponsorInfo.eventName)}</p>
         </div>
     );
 });
 
-// Component voor de zoekbalk
+// Zoekbalk
 const SearchBar = ({ searchTerm, setSearchTerm, translations, language }) => (
   <div className="w-full max-w-md mb-8 px-4 mx-auto">
-    <input
-      type="text"
-      placeholder={translations[language].common.searchPlaceholder}
-      value={searchTerm}
-      onChange={(e) => setSearchTerm(e.target.value)}
-      className="w-full p-3 rounded-lg border-2 border-gray-300 focus:border-[#1a5b64] focus:ring focus:ring-[#1a5b64] focus:ring-opacity-50 text-gray-800 shadow-md"
-    />
+    <input type="text" placeholder={translations[language].common.searchPlaceholder} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full p-3 rounded-lg border-2 border-gray-300 focus:border-[#1a5b64] focus:ring focus:ring-[#1a5b64] focus:ring-opacity-50 text-gray-800 shadow-md"/>
   </div>
 );
 
-// Component voor een enkele voorstellingskaart
-const PerformanceCard = ({
-  item, favorites, toggleFavorite, notificationSubscriptions, toggleNotificationSubscription,
-  addToGoogleCalendar, openContentPopup, language, handleIconMouseEnter, handleIconMouseLeave, translations, showMessageBox,
-  hideTime = false
-}) => {
-    const getCrowdLevelInfo = (level) => {
-        let position = '10%'; 
-        let isFull = false;
+// Component voor de view switcher (Card vs Block)
+const EventViewSwitcher = ({ viewMode, setViewMode, language, translations, handleAnimatedUpdate }) => (
+  <div className="flex justify-center gap-4 my-8">
+    <button
+      onClick={() => handleAnimatedUpdate(() => setViewMode('card'))}
+      className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${viewMode === 'card' ? 'bg-[#1a5b64] text-white shadow-md' : 'bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50'}`}
+    >
+      {translations[language].common.cardView}
+    </button>
+    <button
+      onClick={() => handleAnimatedUpdate(() => setViewMode('block'))}
+      className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${viewMode === 'block' ? 'bg-[#1a5b64] text-white shadow-md' : 'bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50'}`}
+    >
+      {translations[language].common.blockTimetable}
+    </button>
+  </div>
+);
 
+
+// Voorstellingskaart
+const PerformanceCard = ({ item, favorites, toggleFavorite, addToGoogleCalendar, openContentPopup, language, handleIconMouseEnter, handleIconMouseLeave, translations, showMessageBox, hideTime = false }) => {
+    const getCrowdLevelInfo = useCallback((level) => {
+        const defaultInfo = { fullBar: false, position: '10%', tooltip: translations[language].common.tooltipCrowdLevelGreenFull, label: null, barClass: 'bg-gradient-to-r from-green-600 via-yellow-500 to-red-600' };
         switch (level?.toLowerCase()) {
-            case 'oranje':
-            case 'orange':
-                position = '50%';
-                break;
-            case 'rood':
-            case 'red':
-                position = '90%';
-                break;
-            case 'vol':
-            case 'full':
-                isFull = true;
-                break;
-            case 'groen':
-            case 'green':
-            default:
-                position = '10%';
-                break;
+            case 'oranje': case 'orange': return { ...defaultInfo, position: '50%', tooltip: translations[language].common.tooltipCrowdLevelOrangeFull };
+            case 'rood': case 'red': return { ...defaultInfo, position: '90%', tooltip: translations[language].common.tooltipCrowdLevelRedFull };
+            case 'vol': case 'full': return { ...defaultInfo, fullBar: true, label: language === 'nl' ? 'Vol' : 'Full', barClass: 'bg-red-600', tooltip: translations[language].common.tooltipCrowdLevelFull };
+            case 'geannuleerd': case 'cancelled': return { ...defaultInfo, fullBar: true, label: translations[language].common.geannuleerd, barClass: 'bg-red-600', tooltip: translations[language].common.tooltipCrowdLevelCancelled };
+            default: return defaultInfo;
         }
-        const tooltipTextKey = `tooltipCrowdLevel${level?.charAt(0).toUpperCase() + level?.slice(1)}Full`;
-        const tooltipText = translations[language].common[tooltipTextKey] || translations[language].common.tooltipCrowdLevelGreenFull;
-        
-        return { position, tooltipText, isFull };
-    };
+    }, [language, translations]);
 
-    const crowdInfo = item.crowdLevel ? getCrowdLevelInfo(item.crowdLevel) : null;
-
+    const crowdInfo = useMemo(() => item.crowdLevel ? getCrowdLevelInfo(item.crowdLevel) : null, [item.crowdLevel, getCrowdLevelInfo]);
+    const isCancelled = item.crowdLevel?.toLowerCase() === 'geannuleerd' || item.crowdLevel?.toLowerCase() === 'cancelled';
+    const isFull = item.crowdLevel?.toLowerCase() === 'vol' || item.crowdLevel?.toLowerCase() === 'full';
+    const fullTitle = item.artist ? `${item.artist} - ${item.title}` : item.title;
+    
     const handleShare = async (e, title, url) => {
         e.stopPropagation();
         const shareText = translations[language].common.shareBody.replace('%s', title);
@@ -718,112 +583,65 @@ const PerformanceCard = ({
         { key: 'dialogueFree', url: 'https://cafetheaterfestival.nl/wp-content/uploads/2025/06/CTF-ICONS_DIALOGUE-FREE.png', tooltip: translations[language].common.tooltipDialogueFree },
         { key: 'diningFacility', url: 'https://cafetheaterfestival.nl/wp-content/uploads/2025/06/CTF-ICONS_Eetmogelijkheid.png', tooltip: translations[language].common.tooltipDining },
     ];
+    
+    const actionIcons = {
+        favorite: { title: favorites.has(item.id) ? translations[language].common.removeFromFavorites : translations[language].common.addToFavorites, className: favorites.has(item.id) ? 'text-red-500' : 'text-gray-400 hover:text-red-400', fill: favorites.has(item.id) ? 'currentColor' : 'none', stroke: 'currentColor', path: <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 22.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /> },
+        calendar: { title: translations[language].common.addToGoogleCalendar, className: 'text-gray-500 hover:text-gray-700', fill: 'none', stroke: 'currentColor', path: <g><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></g> },
+        share: { title: translations[language].common.sharePerformance, className: 'text-gray-500 hover:text-gray-700', fill: 'none', stroke: 'currentColor', path: <g><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></g> },
+    };
 
     return (
-        <div
-            className={`text-gray-800 p-4 rounded-xl shadow-xl border border-gray-200 transition-all duration-300 hover:scale-105 hover:shadow-2xl cursor-pointer flex flex-col relative min-h-[180px] w-full md:w-[384px] bg-white`}
-            onClick={() => openContentPopup('iframe', item.url)}
-        >
+        <div className={`text-gray-800 p-4 rounded-xl shadow-xl border border-gray-200 transition-all duration-300 flex flex-col relative min-h-[180px] w-full md:w-[384px] bg-white ${isCancelled || isFull ? 'opacity-50' : 'hover:scale-105 hover:shadow-2xl cursor-pointer'}`} onClick={() => !isCancelled && !isFull && openContentPopup('iframe', item.url)}>
             {!hideTime && <p className="text-xl font-bold text-gray-800 mb-2">{item.time}</p>}
-
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full mb-2">
-                <h3 className="text-lg font-semibold text-[#20747f] mb-2 sm:mb-0 sm:mr-4">
-                    {item.title}
-                </h3>
-                <a
-                    href={item.googleMapsUrl || '#'}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => {
-                        if (!item.googleMapsUrl) e.preventDefault();
-                        e.stopPropagation();
-                    }}
-                    className={`flex items-center text-gray-600 text-sm ${item.googleMapsUrl ? 'hover:text-[#1a5b64] cursor-pointer' : 'cursor-default'} transition-colors duration-200`}
-                    title={item.googleMapsUrl ? translations[language].common.openLocationInGoogleMaps : ''}
-                >
-                    {item.location}
-                    {item.googleMapsUrl && (
-                        <span className="ml-1 text-[#20747f]">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 inline-block" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-                                {item.mapNumber && item.mapNumber !== 'N/A' && (
-                                    <text x="12" y="10.5" textAnchor="middle" alignmentBaseline="middle" fill="white" fontSize="9" fontWeight="bold">
-                                        {item.mapNumber}
-                                    </text>
-                                )}
-                            </svg>
-                        </span>
-                    )}
-                </a>
+                <h3 className="text-lg font-semibold text-[#20747f] mb-2 sm:mb-0 sm:mr-4">{fullTitle}</h3>
+                {item.genre && item.genre !== 'N/A' && (
+                    <p className="text-md font-semibold text-gray-600 text-right flex-shrink-0 ml-4">{item.genre}</p>
+                )}
             </div>
-            
              <div className="flex items-start gap-x-6 mb-4">
-                {!hideTime && crowdInfo && item.crowdLevel !== 'N/A' && (
+                <div className="flex-1">
+                    <p className="text-sm font-semibold text-gray-700 mb-1">{translations[language].common.location}</p>
+                    <a href={item.googleMapsUrl || '#'} target="_blank" rel="noopener noreferrer" onClick={(e) => { if (!item.googleMapsUrl) e.preventDefault(); e.stopPropagation(); }} className={`flex items-center text-[#20747f] text-md font-semibold ${item.googleMapsUrl ? 'hover:text-[#1a5b64] cursor-pointer' : 'cursor-default'} transition-colors duration-200`} title={item.googleMapsUrl ? translations[language].common.openLocationInGoogleMaps : ''}>
+                        {item.location}
+                        {item.googleMapsUrl && (
+                            <span className="ml-1 text-[#20747f]">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 inline-block" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                                    {item.mapNumber && item.mapNumber !== 'N/A' && (<text x="12" y="10.5" textAnchor="middle" alignmentBaseline="middle" fill="white" fontSize="9" fontWeight="bold">{item.mapNumber}</text>)}
+                                </svg>
+                            </span>
+                        )}
+                    </a>
+                </div>
+                {!hideTime && crowdInfo && (
                   <div className="flex-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); openContentPopup('text', translations[language].crowdMeterInfo); }}>
                     <p className="text-sm font-semibold text-gray-700 mb-1">{translations[language].common.crowdLevel}</p>
-                    <div className={`relative w-full h-4 rounded-full ${crowdInfo.isFull ? 'bg-red-600' : 'bg-gradient-to-r from-green-600 via-yellow-500 to-red-600'}`} onMouseEnter={(e) => handleIconMouseEnter(e, crowdInfo.tooltipText)} onMouseLeave={handleIconMouseLeave}>
-                        {!crowdInfo.isFull ? (<div className="absolute top-0 w-2 h-full rounded-full bg-gray-800" style={{ left: crowdInfo.position, transform: 'translate(-50%, -50%)', top: '50%' }}></div>) 
-                        : (<div className="absolute inset-0 flex items-center justify-center"><span className="text-white font-bold text-xs uppercase">{language === 'nl' ? 'Vol' : 'Full'}</span></div>)}
+                    <div className={`relative w-full h-4 rounded-full ${crowdInfo.barClass}`} onMouseEnter={(e) => handleIconMouseEnter(e, crowdInfo.tooltip)} onMouseLeave={handleIconMouseLeave}>
+                        {crowdInfo.fullBar ? (<div className="absolute inset-0 flex items-center justify-center"><span className="text-white font-bold text-xs uppercase">{crowdInfo.label}</span></div>)
+                        : (<div className="absolute top-0 w-2 h-full rounded-full bg-gray-800" style={{ left: crowdInfo.position, transform: 'translate(-50%, -50%)', top: '50%' }}></div>)}
                     </div>
                   </div>
                 )}
-                {item.genre && item.genre !== 'N/A' && (
-                    <div className="flex-1">
-                         <p className="text-sm font-semibold text-gray-700 mb-1">{translations[language].common.genre}</p>
-                         <p className="text-md font-semibold text-[#20747f]">{item.genre}</p>
-                    </div>
-                )}
             </div>
-
-            <div className="absolute top-4 right-4 flex flex-row space-x-2">
-                {!hideTime && ['favorite', 'notification', 'calendar', 'share'].map(type => {
-                    const icons = {
-                        favorite: { title: favorites.has(item.id) ? translations[language].common.removeFromFavorites : translations[language].common.addToFavorites, className: favorites.has(item.id) ? 'text-red-500' : 'text-gray-400 hover:text-red-400', fill: favorites.has(item.id) ? 'currentColor' : 'none', stroke: 'currentColor', path: "M4.318 6.318a4.5 4.5 0 000 6.364L12 22.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" },
-                        notification: { title: notificationSubscriptions.has(item.id) ? translations[language].common.stopNotifications : translations[language].common.getNotifications, className: notificationSubscriptions.has(item.id) ? 'text-blue-500' : 'text-gray-400 hover:text-blue-400', fill: notificationSubscriptions.has(item.id) ? 'currentColor' : 'none', stroke: 'currentColor', path: "M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" },
-                        calendar: { title: translations[language].common.addToGoogleCalendar, className: 'text-gray-500 hover:text-gray-700', fill: 'none', stroke: 'currentColor', path: <><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></> },
-                        share: { title: translations[language].common.sharePerformance, className: 'text-gray-500 hover:text-gray-700', fill: 'none', stroke: 'currentColor', path: <><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></> },
-                    };
-                    const icon = icons[type];
-                    const clickHandlers = {
-                        favorite: (e) => toggleFavorite(item, e),
-                        notification: (e) => toggleNotificationSubscription(item, e),
-                        calendar: (e) => addToGoogleCalendar(e, item.title, item.date, item.time, item.location),
-                        share: (e) => handleShare(e, item.title, item.url),
-                    };
-
+             <div className="absolute top-4 right-4 flex flex-row space-x-2">
+                {!hideTime && !isCancelled && !isFull && Object.entries(actionIcons).map(([type, icon]) => {
+                    const clickHandlers = { favorite: (e) => toggleFavorite(item, e), calendar: (e) => addToGoogleCalendar(e, fullTitle, item.date, item.time, item.location), share: (e) => handleShare(e, fullTitle, item.url) };
                     return (
                         <div key={type} className="cursor-pointer" onClick={clickHandlers[type]} title={icon.title}>
-                           <svg xmlns="http://www.w3.org/2000/svg" className={`h-7 w-7 transition-colors duration-200 ${icon.className}`} viewBox="0 0 24 24" fill={icon.fill} stroke={icon.stroke} strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
-                                {typeof icon.path === 'string' ? <path d={icon.path} /> : icon.path}
-                           </svg>
+                           <svg xmlns="http://www.w3.org/2000/svg" className={`h-7 w-7 transition-colors duration-200 ${icon.className}`} viewBox="0 0 24 24" fill={icon.fill} stroke={icon.stroke} strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">{icon.path}</svg>
                         </div>
                     );
                 })}
             </div>
-
             <div className="flex flex-col sm:flex-row justify-between items-center mt-auto pt-4 border-t border-gray-200 w-full gap-4">
                 <div className="flex flex-row flex-wrap justify-start items-center gap-2">
-                    {safetyIcons.map(icon => item.safetyInfo[icon.key] && (
-                        <span key={icon.key} className="text-gray-600 flex items-center" onMouseEnter={(e) => handleIconMouseEnter(e, icon.tooltip)} onMouseLeave={handleIconMouseLeave}>
-                            <img src={icon.url} alt={icon.tooltip} className="h-6 w-auto inline-block"/>
-                        </span>
-                    ))}
+                    {safetyIcons.map(icon => item.safetyInfo[icon.key] && (<span key={icon.key} className="text-gray-600 flex items-center" onMouseEnter={(e) => handleIconMouseEnter(e, icon.tooltip)} onMouseLeave={handleIconMouseLeave}><img src={icon.url} alt={icon.tooltip} className="h-6 w-auto inline-block"/></span>))}
                 </div>
-
                 <div className="flex flex-col sm:flex-row gap-2">
-                    {item.isCalmRoute && (
-                         <button onClick={(e) => { e.stopPropagation(); openContentPopup('calmRouteInfo', translations[language].calmRouteInfo);}} className="px-4 py-2 bg-[#20747f] text-white rounded-lg shadow-md hover:bg-[#1a5b64] transition-all duration-200 text-sm font-semibold text-center">
-                            {translations[language].common.calmRoute}
-                        </button>
-                    )}
-                    {item.pwycLink && (
-                        <button onClick={(e) => { e.stopPropagation(); window.open(item.pwycLink, '_blank'); }} className="px-4 py-2 bg-[#20747f] text-white rounded-lg shadow-md hover:bg-[#1a5b64] transition-all duration-200 text-sm font-semibold text-center" title={translations[language].payWhatYouCan.title}>
-                            {translations[language].payWhatYouCan.title}
-                        </button>
-                    )}
-                    <button onClick={(e) => { e.stopPropagation(); openContentPopup('iframe', item.url); }} className="px-4 py-2 bg-[#20747f] text-white rounded-lg shadow-md hover:bg-[#1a5b64] transition-all duration-200 text-sm" disabled={!item.url || item.url === 'N/A'}>
-                        {translations[language].common.moreInfo}
-                    </button>
+                    {item.isCalmRoute && (<button onClick={(e) => { e.stopPropagation(); openContentPopup('calmRouteInfo', translations[language].calmRouteInfo);}} className="px-4 py-2 bg-[#20747f] text-white rounded-lg shadow-md hover:bg-[#1a5b64] transition-all duration-200 text-sm font-semibold text-center">{translations[language].common.calmRoute}</button>)}
+                    {item.pwycLink && (<button onClick={(e) => { e.stopPropagation(); window.open(item.pwycLink, '_blank'); }} className="px-4 py-2 bg-[#20747f] text-white rounded-lg shadow-md hover:bg-[#1a5b64] transition-all duration-200 text-sm font-semibold text-center" title={translations[language].payWhatYouCan.title}>{translations[language].payWhatYouCan.title}</button>)}
+                    <button onClick={(e) => { e.stopPropagation(); openContentPopup('iframe', item.url); }} className="px-4 py-2 bg-[#20747f] text-white rounded-lg shadow-md hover:bg-[#1a5b64] transition-all duration-200 text-sm" disabled={!item.url || item.url === 'N/A'}>{translations[language].common.moreInfo}</button>
                 </div>
             </div>
         </div>
@@ -834,8 +652,7 @@ const PerformanceCard = ({
 // Component voor het weergeven van de dienstregeling of favorieten
 const TimetableDisplay = ({
   loading, error, displayedData, currentView, favorites, toggleFavorite,
-  notificationSubscriptions, toggleNotificationSubscription, addToGoogleCalendar,
-  openContentPopup, language, handleIconMouseEnter, handleIconMouseLeave, translations,
+  addToGoogleCalendar, openContentPopup, language, handleIconMouseEnter, handleIconMouseLeave, translations,
   selectedEvent, searchTerm, showMessageBox, selectedDate
 }) => {
   if (loading) {
@@ -895,15 +712,17 @@ const TimetableDisplay = ({
                   {subGroup.subGroupTitle}
                 </h3>
               )}
-              <div className="flex flex-wrap gap-6 justify-center">
+              <div
+                className={`grid grid-cols-1 md:grid-cols-2 ${
+                  subGroup.items.length === 2 ? 'lg:grid-cols-2' : 'lg:grid-cols-3'
+                } gap-6 justify-items-center justify-center`}
+              >
                 {subGroup.items.map((item) => (
                   <PerformanceCard
                     key={item.id}
                     item={item}
                     favorites={favorites}
                     toggleFavorite={toggleFavorite}
-                    notificationSubscriptions={notificationSubscriptions}
-                    toggleNotificationSubscription={toggleNotificationSubscription}
                     addToGoogleCalendar={addToGoogleCalendar}
                     openContentPopup={openContentPopup}
                     language={language}
@@ -924,8 +743,8 @@ const TimetableDisplay = ({
 };
 
 
-// NIEUW: Blokkenschema component
-const BlockTimetable = ({ allData, favorites, selectedEvent, setSelectedEventInBlock, uniqueEvents, openContentPopup, translations, language, isFavoritesView = false }) => {
+// Vereenvoudigd Blokkenschema component
+const BlockTimetable = ({ allData, favorites, toggleFavorite, selectedEvent, openContentPopup, translations, language, isFavoritesView = false }) => {
     const [selectedDay, setSelectedDay] = useState(null);
 
     const sourceData = useMemo(() => 
@@ -982,7 +801,7 @@ const BlockTimetable = ({ allData, favorites, selectedEvent, setSelectedEventInB
         });
 
         dayPerformances.forEach(p => {
-            if (grid[p.location]) {
+            if (grid[p.location] && p.time) {
                 const [h, m] = p.time.split(':').map(Number);
                 const timeSlot = `${String(h).padStart(2, '0')}:${m < 30 ? '00' : '30'}`;
                 if (grid[p.location][timeSlot] === null) {
@@ -998,22 +817,60 @@ const BlockTimetable = ({ allData, favorites, selectedEvent, setSelectedEventInB
         return <div className="text-center text-white p-4">{translations[language].common.chooseCity}</div>
     }
 
+    const renderCell = (performance) => {
+        if (!performance) return null;
+
+        const isCancelled = performance.crowdLevel?.toLowerCase() === 'geannuleerd' || performance.crowdLevel?.toLowerCase() === 'cancelled';
+        const isFull = performance.crowdLevel?.toLowerCase() === 'vol' || performance.crowdLevel?.toLowerCase() === 'full';
+        const isFavorite = favorites.has(performance.id);
+        const fullTitle = performance.artist ? `${performance.artist} - ${performance.title}` : performance.title;
+
+        let cellBgClass = 'bg-[#1a5b64] hover:bg-[#2e9aaa]';
+        let content = <>{fullTitle}</>;
+
+        if (isCancelled) {
+            cellBgClass = 'bg-gray-500 opacity-80';
+            content = (
+                <>
+                    <span className="line-through">{fullTitle}</span>
+                    <span className="block text-xs font-bold mt-1">{translations[language].common.geannuleerd}</span>
+                </>
+            );
+        } else if (isFull) {
+            cellBgClass = 'bg-red-500';
+            content = (
+                <>
+                    <span>{fullTitle}</span>
+                    <span className="block text-xs font-bold mt-1">{translations[language].common.vol}</span>
+                </>
+            );
+        }
+        
+        return (
+            <div 
+                onClick={() => !isCancelled && openContentPopup('iframe', performance.url)}
+                className={`relative text-white text-xs p-2 rounded-md w-full h-full flex flex-col items-center justify-center text-center transition-colors ${!isCancelled ? 'cursor-pointer' : ''} ${cellBgClass}`}
+            >
+                <div className="w-full pr-6">
+                    {content}
+                </div>
+                {!isCancelled && (
+                    <div
+                        onClick={(e) => { e.stopPropagation(); toggleFavorite(performance, e); }}
+                        className="absolute top-1 right-1 cursor-pointer p-1"
+                        title={isFavorite ? translations[language].common.removeFromFavorites : translations[language].common.addToFavorites}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 transition-colors duration-200 ${isFavorite ? 'text-red-500' : 'text-white/70 hover:text-white'}`} viewBox="0 0 24 24" fill={isFavorite ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                           <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 22.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                        </svg>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     return (
         <div className="w-full text-white">
-            {!isFavoritesView && (
-                <div className="flex flex-wrap justify-center gap-2 sm:gap-3 md:gap-4 mb-4 p-3 bg-white bg-opacity-20 rounded-xl shadow-lg max-w-full overflow-x-auto scrollbar-hide">
-                    {uniqueEvents.map(event => (
-                        <button
-                            key={event}
-                            onClick={() => setSelectedEventInBlock(event)}
-                            className={`px-4 py-2 rounded-lg font-semibold transition-all duration-200 ${selectedEvent === event ? 'bg-[#1a5b64] text-white shadow-md' : 'bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50'}`}
-                        >
-                            {event}
-                        </button>
-                    ))}
-                </div>
-            )}
-
             <div className="flex flex-wrap justify-center gap-2 sm:gap-3 md:gap-4 mb-8 p-3 bg-white bg-opacity-20 rounded-xl shadow-lg max-w-full overflow-x-auto scrollbar-hide">
                 {availableDays.length > 0 ? availableDays.map(day => (
                     <button 
@@ -1025,44 +882,162 @@ const BlockTimetable = ({ allData, favorites, selectedEvent, setSelectedEventInB
                     </button>
                 )) : <p>{isFavoritesView ? translations[language].common.noFavoritesFound : translations[language].common.noDataFound.replace('%s', selectedEvent)}</p>}
             </div>
-
-            {availableDays.length > 0 && selectedDay && (
-                <div className="overflow-x-auto bg-black bg-opacity-20 p-4 rounded-lg">
-                    <div className="inline-grid gap-px" style={{ gridTemplateColumns: `150px repeat(${gridData.timeSlots.length}, 120px)` }}>
-                        {/* Cel in de linkerbovenhoek. `sticky` en `z-20` zorgen ervoor dat deze boven alles blijft. */}
-                        <div className="sticky top-0 left-0 bg-[#20747f] z-20"></div> 
-                        {/* Tijd-headers. `sticky top-0` zorgt ervoor dat deze bovenaan blijven. */}
-                        {gridData.timeSlots.map(time => (
-                            <div key={time} className="sticky top-0 text-center font-bold p-2 border-b border-white/20 bg-[#20747f] z-10">
-                                {time}
-                            </div>
-                        ))}
-                        {gridData.locations.map((loc, locIndex) => (
-                            <React.Fragment key={loc}>
-                                {/* Locatiecel: `sticky left-0` zorgt ervoor dat deze aan de linkerkant vast blijft zitten tijdens horizontaal scrollen. */}
-                                <div className="sticky left-0 p-2 font-bold bg-[#20747f] z-10 text-right pr-4 border-r border-white/20" style={{ gridRow: locIndex + 2 }}>
-                                    {loc}
+            
+            <div className={`transition-opacity duration-300 ${!selectedDay ? 'opacity-0' : 'opacity-100'}`}>
+                {availableDays.length > 0 && selectedDay && (
+                    <div className="overflow-x-auto bg-black bg-opacity-20 p-4 rounded-lg">
+                        <div className="inline-grid gap-px" style={{ gridTemplateColumns: `100px repeat(${gridData.timeSlots.length}, 120px)` }}>
+                            {/* Cel in de linkerbovenhoek. `sticky` en `z-20` zorgen ervoor dat deze boven alles blijft. */}
+                            <div className="sticky top-0 left-0 bg-[#20747f] z-20"></div> 
+                            {/* Tijd-headers. `sticky top-0` zorgt ervoor dat deze bovenaan blijven. */}
+                            {gridData.timeSlots.map(time => (
+                                <div key={time} className="sticky top-0 text-center font-bold p-2 border-b border-white/20 bg-[#20747f] z-10">
+                                    {time}
                                 </div>
-                                {gridData.timeSlots.map(time => {
-                                    const performance = gridData.grid[loc]?.[time];
-                                    return (
-                                        <div key={`${loc}-${time}`} className="border-r border-b border-white/10 p-1 min-h-[60px] flex items-center justify-center">
-                                            {performance ? (
-                                                <div 
-                                                    onClick={() => openContentPopup('iframe', performance.url)}
-                                                    className="bg-[#1a5b64] text-white text-xs p-2 rounded-md w-full h-full cursor-pointer hover:bg-[#2e9aaa] transition-colors flex items-center justify-center text-center"
-                                                >
-                                                    {performance.title}
-                                                </div>
-                                            ) : null}
-                                        </div>
-                                    );
-                                })}
-                            </React.Fragment>
-                        ))}
+                            ))}
+                            {gridData.locations.map((loc, locIndex) => (
+                                <React.Fragment key={loc}>
+                                    {/* Locatiecel: `sticky left-0` zorgt ervoor dat deze aan de linkerkant vast blijft zitten tijdens horizontaal scrollen. */}
+                                    <div className="sticky left-0 p-2 font-bold bg-[#20747f] z-10 text-right pr-2 border-r border-white/20 flex items-center justify-end" style={{ gridRow: locIndex + 2 }}>
+                                        <span>{loc}</span>
+                                    </div>
+                                    {gridData.timeSlots.map(time => {
+                                        const performance = gridData.grid[loc]?.[time];
+                                        return (
+                                            <div key={`${loc}-${time}`} className="border-r border-b border-white/10 p-1 min-h-[60px] flex items-center justify-center">
+                                                {renderCell(performance)}
+                                            </div>
+                                        );
+                                    })}
+                                </React.Fragment>
+                            ))}
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
+            </div>
+        </div>
+    );
+};
+
+
+// Component voor een inzoombare afbeelding
+const ZoomableImage = ({ src, alt }) => {
+    const [transform, setTransform] = useState({ scale: 1, x: 0, y: 0 });
+    const imageRef = useRef(null);
+    const containerRef = useRef(null);
+    const isPinching = useRef(false);
+    const lastPinchDist = useRef(0);
+    const isDragging = useRef(false);
+    const lastDragPos = useRef({ x: 0, y: 0 });
+
+    const updateTransform = (newTransform, { clamp = true } = {}) => {
+        setTransform(prev => {
+            let { scale, x, y } = { ...prev, ...newTransform };
+            
+            if (clamp) {
+                scale = Math.max(1, Math.min(scale, 5)); // Clamp scale between 1x and 5x
+                
+                if (scale === 1) {
+                    x = 0;
+                    y = 0;
+                } else {
+                    const imageEl = imageRef.current;
+                    const containerEl = containerRef.current;
+                    if (imageEl && containerEl) {
+                        const max_x = (imageEl.offsetWidth * scale - containerEl.clientWidth) / 2;
+                        const max_y = (imageEl.offsetHeight * scale - containerEl.clientHeight) / 2;
+                        x = Math.max(-max_x, Math.min(x, max_x));
+                        y = Math.max(-max_y, Math.min(y, max_y));
+                    }
+                }
+            }
+            return { scale, x, y };
+        });
+    };
+
+    const handleWheel = (e) => {
+        e.preventDefault();
+        const scaleDelta = e.deltaY * -0.01;
+        updateTransform({ scale: transform.scale + scaleDelta });
+    };
+
+    const handleMouseDown = (e) => {
+        e.preventDefault();
+        isDragging.current = true;
+        lastDragPos.current = { x: e.clientX, y: e.clientY };
+    };
+
+    const handleMouseMove = (e) => {
+        if (!isDragging.current) return;
+        e.preventDefault();
+        const dx = e.clientX - lastDragPos.current.x;
+        const dy = e.clientY - lastDragPos.current.y;
+        lastDragPos.current = { x: e.clientX, y: e.clientY };
+        updateTransform({ x: transform.x + dx, y: transform.y + dy });
+    };
+
+    const handleMouseUp = () => isDragging.current = false;
+
+    const getDistance = (touches) => Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
+
+    const handleTouchStart = (e) => {
+        if (e.touches.length === 2) {
+            e.preventDefault();
+            isPinching.current = true;
+            lastPinchDist.current = getDistance(e.touches);
+        } else if (e.touches.length === 1) {
+            e.preventDefault();
+            isDragging.current = true;
+            lastDragPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        }
+    };
+
+    const handleTouchMove = (e) => {
+        if (isPinching.current && e.touches.length === 2) {
+            e.preventDefault();
+            const newDist = getDistance(e.touches);
+            const scaleDelta = (newDist - lastPinchDist.current) * 0.01;
+            lastPinchDist.current = newDist;
+            updateTransform({ scale: transform.scale + scaleDelta });
+        } else if (isDragging.current && e.touches.length === 1) {
+            e.preventDefault();
+            const dx = e.touches[0].clientX - lastDragPos.current.x;
+            const dy = e.clientY - lastDragPos.current.y;
+            lastDragPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            updateTransform({ x: transform.x + dx, y: transform.y + dy });
+        }
+    };
+
+    const handleTouchEnd = () => {
+        isPinching.current = false;
+        isDragging.current = false;
+    };
+    
+    const handleDoubleClick = () => {
+        updateTransform({ scale: transform.scale > 1 ? 1 : 2 });
+    };
+
+    return (
+        <div
+            ref={containerRef}
+            className="w-full h-full flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing"
+            onWheel={handleWheel}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onDoubleClick={handleDoubleClick}
+        >
+            <img
+                ref={imageRef}
+                src={src}
+                alt={alt}
+                className="max-w-full max-h-full object-contain transition-transform duration-100 ease-out"
+                style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})` }}
+            />
         </div>
     );
 };
@@ -1100,15 +1075,13 @@ const PopupModal = ({ showPopup, closePopup, popupContent, language, translation
                 </div>
             );
         case 'iframe':
+             const iframeSrc = typeof popupContent.data === 'string' ? popupContent.data.trim() : '';
+             if (!iframeSrc) return (<div className="flex items-center justify-center h-full text-xl text-white">{translations[language].common.noContentAvailable}</div>);
+             return <iframe src={iframeSrc} title="Meer informatie" className="w-full h-full border-0 rounded-b-lg"></iframe>;
         case 'image':
-            const src = typeof popupContent.data === 'string' ? popupContent.data.trim() : '';
-            if (!src) return (<div className="flex items-center justify-center h-full text-xl text-white">{translations[language].common.noContentAvailable}</div>);
-
-            return popupContent.type === 'iframe' ? (
-                <iframe src={src} title="Meer informatie" className="w-full h-full border-0 rounded-b-lg"></iframe>
-            ) : (
-                <div className="w-full h-full flex items-center justify-center p-4"><img src={src} alt="Kaart" className="max-w-full max-h-full object-contain rounded-lg"/></div>
-            );
+            const imgSrc = typeof popupContent.data === 'string' ? popupContent.data.trim() : '';
+            if (!imgSrc) return (<div className="flex items-center justify-center h-full text-xl text-white">{translations[language].common.noContentAvailable}</div>);
+            return <ZoomableImage src={imgSrc} alt="Kaart" />;
         default:
              return (<div className="flex items-center justify-center h-full text-xl text-white">{translations[language].common.noContentAvailable}</div>);
     }
@@ -1155,16 +1128,24 @@ const CustomTooltip = ({ showCustomTooltip, customTooltipContent, customTooltipP
 };
 
 // Component voor een custom message box (ter vervanging van alert())
-const MessageBox = ({ message, show, onClose, onAction, actionButtonText }) => {
+const MessageBox = ({ show, title, message, buttons }) => {
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[90]">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[100]">
       <div className="bg-white rounded-lg p-6 shadow-xl max-w-sm w-full text-center">
-        <div className="text-lg font-medium text-gray-800 mb-4">{message}</div>
-        <div className="flex justify-center space-x-4">
-            {onAction && actionButtonText && (<button onClick={onAction} className="bg-[#20747f] hover:bg-[#1a5b64] text-white font-bold py-2 px-4 rounded-lg transition duration-300">{actionButtonText}</button>)}
-            <button onClick={onClose} className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg transition duration-300">OK</button>
+        {title && <h3 className="text-xl font-bold text-gray-800 mb-2">{title}</h3>}
+        <div className="text-lg font-medium text-gray-800 mb-6">{message}</div>
+        <div className="flex flex-col sm:flex-row-reverse justify-center space-y-2 sm:space-y-0 sm:space-x-reverse sm:space-x-3">
+          {buttons.map((button, index) => (
+            <button
+              key={index}
+              onClick={button.onClick}
+              className={`font-bold py-2 px-4 rounded-lg transition duration-300 w-full sm:w-auto ${button.className || 'bg-gray-200 hover:bg-gray-300 text-gray-800'}`}
+            >
+              {button.text}
+            </button>
+          ))}
         </div>
       </div>
     </div>
@@ -1173,7 +1154,7 @@ const MessageBox = ({ message, show, onClose, onAction, actionButtonText }) => {
 
 // Component voor de footer buttons
 const FooterButtons = ({ openContentPopup, language, translations, showPopup, showStickyHeader }) => (
-  <div className={`fixed bottom-4 inset-x-0 z-50 flex justify-center space-x-4 transition-opacity duration-300 ${showPopup || !showStickyHeader ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+  <div className={`fixed bottom-16 sm:bottom-4 inset-x-0 z-30 flex justify-center space-x-4 transition-opacity duration-300 ${showPopup || !showStickyHeader ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
     <div className="p-3 bg-white/20 rounded-lg backdrop-blur-sm">
       <button onClick={() => openContentPopup('iframe', 'https://form.jotform.com/223333761374051')} className="px-6 py-3 bg-white text-[#20747f] rounded-lg shadow-md hover:bg-gray-100 transition-all duration-200 text-base font-semibold">
         {translations[language].common.becomeRegularGuest}
@@ -1188,7 +1169,6 @@ const App = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
-  const [showMoreDates, setShowMoreDates] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
   const [popupContent, setPopupContent] = useState({ type: null, data: null });
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
@@ -1197,95 +1177,130 @@ const App = () => {
   const [uniqueEvents, setUniqueEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [favorites, setFavorites] = useState(new Set());
-  const [notificationSubscriptions, setNotificationSubscriptions] = useState(new Set());
-  const [customNotifications, setCustomNotifications] = useState([]);
   const [scheduledCustomNotifications, setScheduledCustomNotifications] = useState(new Set());
   const [language, setLanguage] = useState(() => localStorage.getItem('appLanguage') || 'nl');
   const [showCustomTooltip, setShowCustomTooltip] = useState(false);
   const [customTooltipContent, setCustomTooltipContent] = useState('');
   const [customTooltipPosition, setCustomTooltipPosition] = useState({ x: 0, y: 0 });
-  const [messageBoxShow, setMessageBoxShow] = useState(false);
-  const [messageBoxContent, setMessageBoxContent] = useState('');
-  const [messageBoxAction, setMessageBoxAction] = useState(null);
-  const [messageBoxActionButtonText, setMessageBoxActionButtonText] = useState('');
+  const [messageBoxConfig, setMessageBoxConfig] = useState({ show: false, message: '', buttons: [], title: '' });
+  const [permissionRequestDismissed, setPermissionRequestDismissed] = useState(false);
   const [eventInfoMap, setEventInfoMap] = useState({});
   const [currentSponsorInfo, setCurrentSponsorInfo] = useState(null);
   const [showStickyHeader, setShowStickyHeader] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [favoritesViewMode, setFavoritesViewMode] = useState('card');
-  const [animationClass, setAnimationClass] = useState('');
-  const [contentKey, setContentKey] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [eventViewMode, setEventViewMode] = useState('card');
+  const [isContentVisible, setIsContentVisible] = useState(true); // State voor content animatie
 
   const titleRef = useRef(null);
   const sponsorRef = useRef(null);
-  const notificationTimeouts = useRef({}); 
+  const notificationTimeouts = useRef({});
+  const prevTimetableDataRef = useRef([]);
   
-  const handleNavigation = useCallback((action, isDirectTransition = false) => {
-    if (isDirectTransition) {
-        setAnimationClass('animate-slide-out');
-        setTimeout(() => {
-            action();
-            setContentKey(prev => prev + 1);
-            setAnimationClass('animate-slide-in');
-        }, 300);
-    } else {
-        setIsInitialLoad(true);
-        setTimeout(() => {
-            action();
-            setIsInitialLoad(false);
-            setShowStickyHeader(true);
-        }, 300);
-    }
+  // Functie voor geanimeerde updates
+  const handleAnimatedUpdate = useCallback((updateFunction) => {
+    setIsContentVisible(false);
+    setTimeout(() => {
+      updateFunction();
+      setIsContentVisible(true);
+    }, 300); // Moet overeenkomen met de duur van de CSS-transitie
   }, []);
 
-  const handleEventSelect = useCallback((event) => {
-    handleNavigation(() => {
-        setCurrentView('timetable');
-        setSelectedEvent(event);
-        const datesForEvent = timetableData.filter(item => item.event === event && item.date !== 'N/A').map(item => item.date);
-        const firstDateForEvent = [...new Set(datesForEvent)].sort((a, b) => parseDateForSorting(a) - parseDateForSorting(b))[0];
-        setSelectedDate(firstDateForEvent || 'all-performances');
-    });
-  }, [timetableData, handleNavigation]);
+  const closeMessageBox = useCallback(() => setMessageBoxConfig(prev => ({ ...prev, show: false })), []);
 
-  const handleFavoritesSelect = useCallback(() => {
-    handleNavigation(() => {
-        setCurrentView('favorites');
-        setSelectedEvent(null); 
-        setSelectedDate('favorites-view');
-    });
-  }, [handleNavigation]);
-  
-  const handleBlockTimetableSelect = useCallback(() => {
-    handleNavigation(() => {
-        setCurrentView('block');
-        if (!selectedEvent && uniqueEvents.length > 0) {
-            setSelectedEvent(uniqueEvents[0]);
+  const showMessageBox = useCallback((message, buttons = [], title = '') => {
+    const finalButtons = buttons.length > 0 ? buttons : [{ text: 'OK', onClick: closeMessageBox, className: 'bg-gray-200 hover:bg-gray-300 text-gray-800' }];
+    setMessageBoxConfig({ show: true, message, buttons: finalButtons, title });
+  }, [closeMessageBox]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+        if (titleRef.current) {
+            const { bottom } = titleRef.current.getBoundingClientRect();
+            setShowStickyHeader(bottom < 80);
         }
-    });
-  }, [selectedEvent, uniqueEvents, handleNavigation]);
-  
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const handleViewChange = useCallback((view, event = null) => {
+    setIsTransitioning(true);
+    const newState = { view: 'detail', event, viewMode: 'card', currentView: view };
+    const hash = event ? `#${event}` : (view === 'favorites' ? '#favorites' : '');
+    
+    if (window.history.state?.view !== 'detail') {
+        window.history.pushState(newState, '', hash);
+    } else {
+        window.history.replaceState(newState, '', hash);
+    }
+
+    setTimeout(() => {
+        setCurrentView(view);
+        setSelectedEvent(event);
+        setEventViewMode('card');
+        setIsInitialLoad(false);
+        setShowStickyHeader(true);
+
+        if (view === 'timetable' && event) {
+            const datesForEvent = timetableData.filter(item => item.event === event && item.date !== 'N/A').map(item => item.date);
+            const firstDateForEvent = [...new Set(datesForEvent)].sort((a, b) => parseDateForSorting(a) - parseDateForSorting(b))[0];
+            setSelectedDate(firstDateForEvent || 'all-performances');
+        } else if (view === 'favorites') {
+            setSelectedDate('favorites-view');
+        }
+        
+        requestAnimationFrame(() => {
+             if (sponsorRef.current) {
+                const headerEl = document.querySelector('.fixed.top-0');
+                const headerHeight = headerEl ? headerEl.offsetHeight : 80;
+                const elementTop = sponsorRef.current.getBoundingClientRect().top + window.scrollY;
+                window.scrollTo({ top: elementTop - headerHeight - 10, behavior: 'auto' });
+             } else {
+                 window.scrollTo({ top: 0, behavior: 'auto'});
+             }
+             setIsTransitioning(false);
+        });
+
+    }, 300);
+  }, [timetableData]);
+
+  const returnToInitialView = useCallback(() => {
+      setIsInitialLoad(true);
+      setSelectedEvent(null);
+      setSelectedDate(null);
+      setSearchTerm('');
+      setShowStickyHeader(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
   const handleStickyLogoClick = useCallback(() => {
-    setIsInitialLoad(true);
-    setSelectedEvent(null);
-    setSelectedDate(null);
-    setSearchTerm('');
-    setShowStickyHeader(false);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
+    window.history.pushState({ view: 'initial' }, '', window.location.href.split('#')[0]);
+    returnToInitialView();
+  }, [returnToInitialView]);
 
-  const handleStickyNav = useCallback((action) => {
-    handleNavigation(action, true);
-  }, [handleNavigation]);
+  useEffect(() => {
+      const handlePopState = (event) => {
+          const state = event.state;
+          if (!state || state.view === 'initial') {
+              returnToInitialView();
+          } else if (state.view === 'detail') {
+              setIsInitialLoad(false);
+              setCurrentView(state.currentView || 'timetable');
+              setSelectedEvent(state.event);
+              setEventViewMode(state.viewMode || 'card');
+              setShowStickyHeader(true);
+          }
+      };
 
-  const showMessageBox = useCallback((message, action = null, actionButtonText = '') => {
-    setMessageBoxContent(message);
-    setMessageBoxAction(() => action);
-    setMessageBoxActionButtonText(actionButtonText);
-    setMessageBoxShow(true);
-  }, []);
+      window.addEventListener('popstate', handlePopState);
+      window.history.replaceState({ view: 'initial' }, '', window.location.href.split('#')[0]);
 
-  const closeMessageBox = useCallback(() => setMessageBoxShow(false), []);
+      return () => {
+          window.removeEventListener('popstate', handlePopState);
+      };
+  }, [returnToInitialView]);
 
   const openContentPopup = useCallback((type, data) => {
     let finalData = data;
@@ -1303,20 +1318,35 @@ const App = () => {
   const closePopup = useCallback(() => setShowPopup(false), []); 
 
   useEffect(() => {
-    document.body.style.overflow = (showPopup || showPrivacyPolicy || messageBoxShow) ? 'hidden' : '';
-    return () => document.body.style.overflow = '';
-  }, [showPopup, showPrivacyPolicy, messageBoxShow]);
+    const isModalOpen = showPopup || showPrivacyPolicy || messageBoxConfig.show;
+    const mainContentEl = document.getElementById('main-content-area');
+
+    // Set styles when modal opens or closes
+    if (isModalOpen) {
+      document.body.style.overflow = 'hidden';
+      if (mainContentEl) mainContentEl.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+      if (mainContentEl) mainContentEl.style.overflow = 'auto';
+    }
+
+    // Cleanup function to restore scrolling when component unmounts
+    return () => {
+      document.body.style.overflow = '';
+      if (mainContentEl) mainContentEl.style.overflow = 'auto';
+    };
+  }, [showPopup, showPrivacyPolicy, messageBoxConfig.show]);
 
   useEffect(() => {
     try {
       const storedFavorites = JSON.parse(localStorage.getItem('ctfTimetableFavorites'));
       if (storedFavorites) setFavorites(new Set(storedFavorites));
-
-      const storedSubs = JSON.parse(localStorage.getItem('ctfNotificationSubscriptions'));
-      if (storedSubs) setNotificationSubscriptions(new Set(storedSubs));
       
       const storedCustomNotifs = JSON.parse(localStorage.getItem('ctfScheduledCustomNotifications'));
        if (storedCustomNotifs) setScheduledCustomNotifications(new Set(storedCustomNotifs));
+       
+      const dismissed = localStorage.getItem('ctfNotificationPermissionDismissed');
+      if (dismissed === 'true') setPermissionRequestDismissed(true);
 
     } catch (e) { console.error("Fout bij laden uit localStorage:", e); }
   }, []);
@@ -1340,6 +1370,7 @@ const App = () => {
   const handleLanguageChange = () => setLanguage(prev => prev === 'nl' ? 'en' : 'nl');
 
   const googleSheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR2IpMrUJ8Jyfq1xtIbioh7L0-9SQ4mLo_kOdLnvt2EWXNGews64jMTFHAegaAQ1ZF3pQ4HC_0Kca4D/pub?output=csv';
+  const gistNotificationsUrl = 'https://ldegroen.github.io/ctf-notificaties/notifications.json'; 
 
   const parseCsvLine = (line) => {
     const cells = []; let inQuote = false; let currentCell = '';
@@ -1363,27 +1394,18 @@ const App = () => {
         const lines = csvText.split(/\r?\n/).slice(1).filter(line => line.trim() !== '');
         let allParsedData = [];
         const localEventInfoMap = {};
-        const customNotificationsToSchedule = [];
 
         for (let i = 0; i < lines.length; i++) {
             const cells = parseCsvLine(lines[i]);
-            if (cells.length < 25) continue;
+            if (cells.length < 22) continue; // Check for new column count
 
+            // New column mapping
             const [
-                date, time, title, genre, url, event, sponsorLogoUrl,
+                date, time, artist, title, genre, url, event, sponsorLogoUrl,
                 pwycLink, location, googleMapsUrl, mapNumber, mapImageUrl,
                 wheelchair, children, dutch, english, dialogue, dining,
-                crowd, ngt, calm, , , notificationDate, notificationText
+                crowd, ngt, calm
             ] = cells.map(cell => cell || '');
-
-            if (notificationDate && notificationText) {
-                customNotificationsToSchedule.push({
-                    date: notificationDate,
-                    time: "17:00", // Fixed time
-                    text: notificationText,
-                    id: `custom-notif-row-${i}` 
-                });
-            }
 
             if (event) {
                 if (!localEventInfoMap[event]) localEventInfoMap[event] = {};
@@ -1398,7 +1420,8 @@ const App = () => {
             }
 
             allParsedData.push({
-                id: `${event}-${date}-${time}-${title}`, date, time, title, location, url, event,
+                id: `${event}-${date}-${time}-${artist}-${title}`, // Updated ID for uniqueness
+                date, time, artist, title, location, url, event,
                 googleMapsUrl, pwycLink, mapNumber, mapImageUrl, genre, isCalmRoute: calm.toLowerCase() === 'x',
                 crowdLevel: crowd,
                 safetyInfo: {
@@ -1414,13 +1437,13 @@ const App = () => {
         }
         
         setEventInfoMap(localEventInfoMap);
-        setCustomNotifications(customNotificationsToSchedule);
 
         const now = new Date();
         const cutoffTime = new Date(now.getTime() - 30 * 60 * 1000);
         const filteredDataForDisplay = allParsedData.filter(item => {
+            if (!item.date || !item.time) return true;
             const perfDate = parseDateForSorting(item.date);
-            if(isNaN(perfDate.getTime()) || !item.time) return true;
+            if(isNaN(perfDate.getTime())) return true;
             const [h, m] = item.time.split(':');
             perfDate.setHours(h, m, 0, 0);
             return perfDate >= cutoffTime;
@@ -1437,36 +1460,277 @@ const App = () => {
     } finally {
       setLoading(false);
     }
-  }, [language]);
+  }, [language, translations]);
 
-  useEffect(() => { fetchTimetableData(); }, [fetchTimetableData]);
+  // Effect to fetch data periodically
+  useEffect(() => {
+    fetchTimetableData();
+    const intervalId = setInterval(fetchTimetableData, 120000); // Poll every 2 minutes
+    return () => clearInterval(intervalId);
+  }, [fetchTimetableData]);
+
+  const openSettingsWithFallback = useCallback(() => {
+      if (window.AndroidBridge) {
+          if (typeof window.AndroidBridge.openExactAlarmSettings === 'function') {
+              window.AndroidBridge.openExactAlarmSettings();
+          } else if (typeof window.AndroidBridge.openAppSettings === 'function') {
+              window.AndroidBridge.openAppSettings();
+          }
+      }
+      closeMessageBox(); 
+  }, [closeMessageBox]);
+  
+  const showPermissionDialog = useCallback(() => {
+      showMessageBox(
+        translations[language].common.exactAlarmPermissionNeededBody,
+        [
+          {
+            text: translations[language].common.openSettings,
+            onClick: openSettingsWithFallback,
+            className: 'bg-[#20747f] hover:bg-[#1a5b64] text-white'
+          },
+          {
+            text: translations[language].common.later,
+            onClick: closeMessageBox,
+            className: 'bg-gray-200 hover:bg-gray-300 text-gray-800'
+          }
+        ],
+        translations[language].common.exactAlarmPermissionNeededTitle
+      );
+  }, [language, translations, showMessageBox, closeMessageBox, openSettingsWithFallback]);
 
   useEffect(() => {
-      if (loading || customNotifications.length === 0 || !language) return;
-      customNotifications.forEach(async (notif) => {
-          if (scheduledCustomNotifications.has(notif.id)) return;
-          const notificationDate = parseDateForSorting(notif.date);
-          if (isNaN(notificationDate.getTime())) return;
-          const [h, m] = notif.time.split(':');
-          notificationDate.setHours(h, m, 0, 0);
-          if (notificationDate < new Date()) return;
-          
-          const title = translations[language].common.genericNotificationTitle;
-          const body = notif.text;
-          
-          if (window.AndroidBridge?.scheduleNativeNotification) {
-              // Native schedule logic
-          } else if ('Notification' in window && Notification.permission === 'granted') {
-              // Web schedule logic
-          } else { return; }
-          
-          setScheduledCustomNotifications(prev => {
-              const newSet = new Set(prev).add(notif.id);
-              localStorage.setItem('ctfScheduledCustomNotifications', JSON.stringify([...newSet]));
-              return newSet;
-          });
-      });
-  }, [customNotifications, scheduledCustomNotifications, language, loading, translations]);
+    const checkPermissionsOnLoad = async () => {
+      if (window.AndroidBridge && !permissionRequestDismissed && !loading) {
+        const canSchedule = await window.AndroidBridge.canScheduleExactAlarms();
+        if (!canSchedule) {
+          showMessageBox(
+            translations[language].common.exactAlarmPermissionNeededBody,
+            [
+              {
+                text: translations[language].common.openSettings,
+                onClick: openSettingsWithFallback,
+                className: 'bg-[#20747f] hover:bg-[#1a5b64] text-white'
+              },
+              {
+                text: translations[language].common.dontAskAgain,
+                onClick: () => {
+                  localStorage.setItem('ctfNotificationPermissionDismissed', 'true');
+                  setPermissionRequestDismissed(true);
+                  closeMessageBox();
+                },
+                className: 'bg-gray-500 hover:bg-gray-600 text-white'
+              },
+              {
+                text: translations[language].common.later,
+                onClick: closeMessageBox,
+                className: 'bg-gray-200 hover:bg-gray-300 text-gray-800'
+              }
+            ],
+            translations[language].common.exactAlarmPermissionNeededTitle
+          );
+        }
+      }
+    };
+    const timer = setTimeout(checkPermissionsOnLoad, 1000);
+    return () => clearTimeout(timer);
+  }, [loading, permissionRequestDismissed, language, translations, showMessageBox, closeMessageBox, openSettingsWithFallback]);
+
+  const scheduleActualNotification = useCallback(async (item) => {
+    const notificationTime = parseDateForSorting(item.date);
+    if (isNaN(notificationTime.getTime()) || !item.time) return;
+
+    const [h, m] = item.time.split(':');
+    notificationTime.setHours(h, m, 0, 0);
+
+    const reminderTime = new Date(notificationTime.getTime() - 20 * 60 * 1000);
+    const now = new Date();
+    const fullTitle = item.artist ? `${item.artist} - ${item.title}` : item.title;
+
+    if (reminderTime <= now) {
+      if (item.crowdLevel?.toLowerCase() === 'geannuleerd' || item.crowdLevel?.toLowerCase() === 'cancelled') {
+        const title = translations[language].common.cancellationNotificationTitle;
+        const body = translations[language].common.cancellationNotificationBody.replace('%s', fullTitle);
+        if (window.AndroidBridge?.scheduleNativeNotification) {
+          window.AndroidBridge.scheduleNativeNotification(title, body, Date.now(), `cancellation-${item.id}`, '');
+        } else if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification(title, { body });
+        }
+      }
+      return;
+    }
+
+    const title = translations[language].common.notificationTitle;
+    const body = translations[language].common.notificationBody.replace('%s', fullTitle).replace('%s', item.location);
+    const notificationId = item.id;
+
+    if (window.AndroidBridge?.scheduleNativeNotification) {
+      const canSchedule = await window.AndroidBridge.canScheduleExactAlarms();
+      if (!canSchedule) {
+          if (!permissionRequestDismissed) showPermissionDialog();
+          return;
+      }
+      window.AndroidBridge.scheduleNativeNotification(title, body, reminderTime.getTime(), notificationId, '');
+    } else if ('Notification' in window && Notification.permission === 'granted') {
+      const delay = reminderTime.getTime() - now.getTime();
+      if (delay > 0) {
+        if(notificationTimeouts.current[notificationId]) clearTimeout(notificationTimeouts.current[notificationId]);
+        const timeoutId = setTimeout(() => {
+          new Notification(title, { body });
+          delete notificationTimeouts.current[notificationId];
+        }, delay);
+        notificationTimeouts.current[notificationId] = timeoutId;
+      }
+    }
+  }, [language, translations, showPermissionDialog, permissionRequestDismissed]);
+
+  const cancelScheduledNotification = useCallback((performanceId) => {
+    if (window.AndroidBridge?.cancelNativeNotification) {
+      window.AndroidBridge.cancelNativeNotification(performanceId);
+    }
+    if (notificationTimeouts.current[performanceId]) {
+      clearTimeout(notificationTimeouts.current[performanceId]);
+      delete notificationTimeouts.current[performanceId];
+    }
+  }, []);
+
+  const scheduleStatusNotification = useCallback((item, type) => {
+    let title, body;
+    const fullTitle = item.artist ? `${item.artist} - ${item.title}` : item.title;
+
+    if (type === 'cancelled') {
+        title = translations[language].common.cancellationNotificationTitle;
+        body = translations[language].common.cancellationNotificationBody.replace('%s', fullTitle);
+    } else if (type === 'full') {
+        title = translations[language].common.fullNotificationTitle;
+        body = translations[language].common.fullNotificationBody.replace('%s', fullTitle);
+    } else {
+        return;
+    }
+
+    const notificationId = `${type}-${item.id}-${new Date().getTime()}`;
+    const scheduleTime = Date.now() + 60 * 1000; // 1 minuut in de toekomst
+
+    if (window.AndroidBridge?.scheduleNativeNotification) {
+        // Plan voor Android via de bridge
+        window.AndroidBridge.scheduleNativeNotification(title, body, scheduleTime, notificationId, '');
+    } else if ('Notification' in window && Notification.permission === 'granted') {
+        // Plan voor web met setTimeout
+        setTimeout(() => {
+            new Notification(title, { body, tag: notificationId });
+        }, 60 * 1000);
+    }
+  }, [language, translations]);
+
+  // Effect to check for status changes on favorites
+  useEffect(() => {
+    if (loading || prevTimetableDataRef.current.length === 0 || favorites.size === 0) {
+        return;
+    }
+
+    const prevDataMap = new Map(prevTimetableDataRef.current.map(item => [item.id, item]));
+    const favoritesToRemove = new Set();
+
+    favorites.forEach(favId => {
+        const currentItem = timetableData.find(item => item.id === favId);
+        const prevItem = prevDataMap.get(favId);
+
+        if (currentItem && prevItem) {
+            const currentStatus = currentItem.crowdLevel?.toLowerCase();
+            const prevStatus = prevItem.crowdLevel?.toLowerCase();
+
+            if (currentStatus !== prevStatus) {
+                if (currentStatus === 'geannuleerd' || currentStatus === 'cancelled') {
+                    scheduleStatusNotification(currentItem, 'cancelled');
+                    cancelScheduledNotification(currentItem.id); // Cancel reminder too
+                    favoritesToRemove.add(favId); // Mark for removal
+                }
+                if (currentStatus === 'vol' || currentStatus === 'full') {
+                    scheduleStatusNotification(currentItem, 'full');
+                    favoritesToRemove.add(favId); // Mark for removal
+                }
+            }
+        }
+    });
+
+    if (favoritesToRemove.size > 0) {
+        setFavorites(prevFavorites => {
+            const newFavorites = new Set(prevFavorites);
+            favoritesToRemove.forEach(id => newFavorites.delete(id));
+            localStorage.setItem('ctfTimetableFavorites', JSON.stringify([...newFavorites]));
+            return newFavorites;
+        });
+    }
+  }, [timetableData, favorites, loading, scheduleStatusNotification, cancelScheduledNotification]);
+
+  // Effect to update the previous data ref *after* the main effect has run
+  useEffect(() => {
+      prevTimetableDataRef.current = timetableData;
+  }, [timetableData]);
+
+  const processAndScheduleGeneralNotifications = useCallback(async (notifications) => {
+    if (!Array.isArray(notifications)) {
+        console.error("General notifications data is not an array:", notifications);
+        return;
+    }
+
+    let hasPermission = true;
+    if (window.AndroidBridge) {
+        hasPermission = await window.AndroidBridge.canScheduleExactAlarms();
+        if (!hasPermission && !permissionRequestDismissed) {
+            showPermissionDialog();
+            return;
+        }
+    } else if (!('Notification' in window) || Notification.permission !== 'granted') {
+        hasPermission = false;
+    }
+
+    const newlyScheduledIds = new Set();
+    const now = new Date();
+
+    for (const notif of notifications) {
+        if (!notif.id || !notif.date) continue;
+        if (scheduledCustomNotifications.has(notif.id)) continue;
+        const notificationDateTime = new Date(notif.date);
+        if (isNaN(notificationDateTime.getTime()) || notificationDateTime <= now) continue;
+        if (!hasPermission) continue;
+
+        const title = translations[language].common.genericNotificationTitle;
+        const body = language === 'nl' ? notif.text_nl : notif.text_en;
+        if (!body) continue;
+        
+        if (window.AndroidBridge?.scheduleNativeNotification) {
+            window.AndroidBridge.scheduleNativeNotification(title, body, notificationDateTime.getTime(), notif.id, '');
+        } else {
+            const delay = notificationDateTime.getTime() - now.getTime();
+            setTimeout(() => { new Notification(title, { body }); }, delay);
+        }
+        newlyScheduledIds.add(notif.id);
+    }
+
+    if (newlyScheduledIds.size > 0) {
+        setScheduledCustomNotifications(prev => {
+            const newSet = new Set([...prev, ...newlyScheduledIds]);
+            localStorage.setItem('ctfScheduledCustomNotifications', JSON.stringify([...newSet]));
+            return newSet;
+        });
+    }
+  }, [language, translations, scheduledCustomNotifications, permissionRequestDismissed, showPermissionDialog]);
+
+  useEffect(() => {
+    const fetchAndProcessGistNotifications = async () => {
+      if (!gistNotificationsUrl) return;
+      try {
+        const response = await fetch(gistNotificationsUrl);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const json = await response.json();
+        processAndScheduleGeneralNotifications(json);
+      } catch (err) {
+        console.error("Error fetching or processing Gist notifications:", err);
+      }
+    };
+    if (!loading) fetchAndProcessGistNotifications();
+  }, [loading, processAndScheduleGeneralNotifications]);
 
   useEffect(() => {
     if (selectedEvent && eventInfoMap[selectedEvent]) {
@@ -1485,6 +1749,7 @@ const App = () => {
         sourceData = timetableData.filter(item => favorites.has(item.id));
     } else if (searchTerm) {
         sourceData = timetableData.filter(item => 
+            (item.artist && item.artist.toLowerCase().includes(lowerCaseSearchTerm)) ||
             item.title.toLowerCase().includes(lowerCaseSearchTerm) || 
             item.location.toLowerCase().includes(lowerCaseSearchTerm)
         );
@@ -1494,7 +1759,8 @@ const App = () => {
         } else if (selectedDate === 'all-performances') {
             const uniqueTitles = new Map();
             timetableData.filter(item => item.event === selectedEvent).forEach(item => {
-                if (!uniqueTitles.has(item.title)) uniqueTitles.set(item.title, item);
+                const fullTitle = item.artist ? `${item.artist} - ${item.title}` : item.title;
+                if (!uniqueTitles.has(fullTitle)) uniqueTitles.set(fullTitle, item);
             });
             sourceData = [...uniqueTitles.values()];
         } else {
@@ -1511,7 +1777,13 @@ const App = () => {
             (acc[item.event] = acc[item.event] || []).push(item);
             return acc;
         }, {});
-        return Object.keys(groupedByEvent).sort().map(eventName => {
+        return Object.keys(groupedByEvent).sort((a, b) => {
+            const dateA = parseDateForSorting(eventInfoMap[a]?.dateString);
+            const dateB = parseDateForSorting(eventInfoMap[b]?.dateString);
+            if (!dateA || isNaN(dateA.getTime())) return 1;
+            if (!dateB || isNaN(dateB.getTime())) return -1;
+            return dateA - dateB;
+        }).map(eventName => {
             const itemsForEvent = groupedByEvent[eventName];
             const groupedByDate = itemsForEvent.reduce((acc, item) => {
                 (acc[item.date] = acc[item.date] || []).push(item);
@@ -1544,7 +1816,7 @@ const App = () => {
         items: groupedByDate[date].sort((a, b) => selectedDate === 'all-performances' ? a.title.localeCompare(b.title) : a.time.localeCompare(b.time))
       }))
     }];
-  }, [searchTerm, currentView, selectedEvent, selectedDate, timetableData, favorites, language, translations, favoritesViewMode]);
+  }, [searchTerm, currentView, selectedEvent, selectedDate, timetableData, favorites, language, translations, favoritesViewMode, eventInfoMap]);
 
   const datesForCurrentSelectedEvent = useMemo(() => {
     if (currentView === 'favorites' || !selectedEvent) return [];
@@ -1552,92 +1824,60 @@ const App = () => {
            .sort((a, b) => parseDateForSorting(a) - parseDateForSorting(b));
   }, [timetableData, selectedEvent, currentView]);
 
-  const visibleDatesForEvent = datesForCurrentSelectedEvent.slice(0, 5);
-  const hiddenDatesForEvent = datesForCurrentSelectedEvent.slice(5);
-
-  const scheduleActualNotification = useCallback(async (item) => {
-    const eventTime = parseDateForSorting(item.date);
-    if(isNaN(eventTime.getTime())) return;
-    const [h, m] = item.time.split(':');
-    eventTime.setHours(h, m, 0, 0);
-
-    const notificationTime = new Date(eventTime.getTime() - 20 * 60 * 1000); 
-    if (notificationTime < new Date()) {
-      setNotificationSubscriptions(prev => {
-        const newState = new Set(prev);
-        if(newState.delete(item.id)) localStorage.setItem('ctfNotificationSubscriptions', JSON.stringify([...newState]));
-        return newState;
-      });
-      return;
-    }
-    
-    if (window.AndroidBridge?.scheduleNativeNotification) {
-      const canSchedule = await window.AndroidBridge.canScheduleExactAlarms();
-      if(!canSchedule) {
-        showMessageBox(translations[language].common.exactAlarmPermissionNeededBody, () => window.AndroidBridge.openExactAlarmSettings(), translations[language].common.openSettings);
-        return;
-      }
-      window.AndroidBridge.scheduleNativeNotification(translations[language].common.notificationTitle, translations[language].common.notificationBody.replace('%s', item.title).replace('%s', item.location), notificationTime.getTime(), item.id, item.url);
-    } else if ('Notification' in window && Notification.permission === 'granted') {
-      const tag = `notification-${item.id}`;
-      if (notificationTimeouts.current[tag]) clearTimeout(notificationTimeouts.current[tag]);
-      notificationTimeouts.current[tag] = setTimeout(() => {
-        new Notification(translations[language].common.notificationTitle, { body: translations[language].common.notificationBody.replace('%s', item.title).replace('%s', item.location), icon: 'Logo_Web_Trans_Wit.png', tag });
-        setNotificationSubscriptions(prev => { const s = new Set(prev); s.delete(item.id); localStorage.setItem('ctfNotificationSubscriptions', JSON.stringify([...s])); return s; });
-      }, notificationTime.getTime() - Date.now());
-    } else {
-        showMessageBox(`Notificaties niet ondersteund of geweigerd.`);
-    }
-  }, [language, translations, showMessageBox]);
-
-  const cancelScheduledNotification = useCallback((performanceId) => {
-    if (window.AndroidBridge?.cancelNativeNotification) {
-        window.AndroidBridge.cancelNativeNotification(performanceId);
-    } else {
-        const tag = `notification-${performanceId}`;
-        if (notificationTimeouts.current[tag]) {
-            clearTimeout(notificationTimeouts.current[tag]);
-            delete notificationTimeouts.current[tag];
-        }
-    }
-  }, []);
-
   const toggleFavorite = useCallback((itemObject, e) => {
     e.stopPropagation();
     setFavorites(prev => {
       const newFavorites = new Set(prev);
-      if (newFavorites.has(itemObject.id)) newFavorites.delete(itemObject.id);
-      else newFavorites.add(itemObject.id);
+      if (newFavorites.has(itemObject.id)) {
+        newFavorites.delete(itemObject.id);
+        cancelScheduledNotification(itemObject.id);
+      } else {
+        newFavorites.add(itemObject.id);
+        scheduleActualNotification(itemObject);
+      }
       localStorage.setItem('ctfTimetableFavorites', JSON.stringify([...newFavorites]));
       return newFavorites;
     });
-  }, []);
-
-  const toggleNotificationSubscription = useCallback((itemObject, e) => {
-      e.stopPropagation();
-      setNotificationSubscriptions(prev => {
-          const newSubs = new Set(prev);
-          if (newSubs.has(itemObject.id)) {
-              newSubs.delete(itemObject.id);
-              cancelScheduledNotification(itemObject.id);
-          } else {
-              newSubs.add(itemObject.id);
-              scheduleActualNotification(itemObject);
-          }
-          localStorage.setItem('ctfNotificationSubscriptions', JSON.stringify([...newSubs]));
-          return newSubs;
-      });
   }, [scheduleActualNotification, cancelScheduledNotification]);
+
+  useEffect(() => {
+    if (timetableData.length > 0 && favorites.size > 0) {
+        const dataMap = new Map(timetableData.map(item => [item.id, item]));
+        favorites.forEach(favId => {
+            const item = dataMap.get(favId);
+            if (item) {
+                scheduleActualNotification(item);
+            }
+        });
+    }
+  }, [timetableData, favorites, scheduleActualNotification]);
 
   const addToGoogleCalendar = useCallback((e, title, date, time, location) => {
     e.stopPropagation();
-    const startDate = parseDateForSorting(date);
-    if (isNaN(startDate.getTime())) return;
-    const [h,m] = time.split(':');
-    startDate.setUTCHours(h, m);
+    const dateObj = parseDateForSorting(date);
+    if (isNaN(dateObj.getTime()) || !time) {
+      console.error("Invalid date or time for calendar event:", date, time);
+      return;
+    }
+    const year = dateObj.getUTCFullYear();
+    const month = dateObj.getUTCMonth();
+    const day = dateObj.getUTCDate();
+    const [startHour, startMinute] = time.split(':').map(Number);
+    const startDate = new Date(Date.UTC(year, month, day, startHour, startMinute));
     const endDate = new Date(startDate.getTime() + 30 * 60 * 1000);
-    const format = d => d.toISOString().replace(/[:-]\d\d\.\d{3}Z$/, '').replace(/[-:]/g,'');
-    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${format(startDate)}/${format(endDate)}&details=${encodeURIComponent('Locatie: ' + location)}&location=${encodeURIComponent(location)}&sf=true&output=xml`;
+    const formatForGoogle = (d) => {
+        const yyyy = d.getUTCFullYear();
+        const MM = String(d.getUTCMonth() + 1).padStart(2, '0');
+        const DD = String(d.getUTCDate()).padStart(2, '0');
+        const hh = String(d.getUTCHours()).padStart(2, '0');
+        const mm = String(d.getUTCMinutes()).padStart(2, '0');
+        const ss = String(d.getUTCSeconds()).padStart(2, '0');
+        return `${yyyy}${MM}${DD}T${hh}${mm}${ss}Z`;
+    };
+    const startDateString = formatForGoogle(startDate).replace(/[:-]/g, '');
+    const endDateString = formatForGoogle(endDate).replace(/[:-]/g, '');
+    const timezone = 'Europe/Amsterdam';
+    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${startDateString}/${endDateString}&ctz=${timezone}&details=${encodeURIComponent('Locatie: ' + location)}&location=${encodeURIComponent(location)}&sf=true&output=xml`;
     window.open(url, '_blank');
   }, []);
 
@@ -1650,48 +1890,59 @@ const App = () => {
   const handleIconMouseLeave = useCallback(() => setShowCustomTooltip(false), []);
   
   const renderMainContent = () => {
-      if (loading) {
+      if (loading && isInitialLoad) {
         return (
-            <div className="flex justify-center items-center h-screen">
+            <div className="flex justify-center items-center h-full">
                 <div className="w-16 h-16 border-4 border-t-4 border-gray-200 border-t-blue-500 rounded-full animate-spin"></div>
             </div>
         );
       }
       
       return (
-        <div className="w-full">
-            {(selectedEvent || currentView === 'favorites' || currentView === 'block') && (
+        <div className={`transition-opacity duration-500 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
+          <div className={`transition-opacity duration-300 ${isContentVisible ? 'opacity-100' : 'opacity-0'}`}>
+            {(selectedEvent || currentView === 'favorites') && (
                 <>
                   <SponsorDisplay ref={sponsorRef} sponsorInfo={currentSponsorInfo} language={language} translations={translations} />
                   
-                  {currentView === 'timetable' && !searchTerm && (
-                      <DateNavigation loading={loading} error={error} datesForCurrentSelectedEvent={datesForCurrentSelectedEvent} visibleDatesForEvent={visibleDatesForEvent} hiddenDatesForEvent={hiddenDatesForEvent} showMoreDates={showMoreDates} setShowMoreDates={setShowMoreDates} selectedDate={selectedDate} setSelectedDate={setSelectedDate} setSearchTerm={setSearchTerm} translations={translations} language={language} currentView={currentView} timetableData={timetableData} selectedEvent={selectedEvent} />
+                  {currentView === 'timetable' && !searchTerm && eventViewMode === 'card' && (
+                      <DateNavigation datesForCurrentSelectedEvent={datesForCurrentSelectedEvent} selectedDate={selectedDate} setSelectedDate={setSelectedDate} setSearchTerm={setSearchTerm} translations={translations} language={language} selectedEvent={selectedEvent} timetableData={timetableData} />
                   )}
 
                   {currentView === 'timetable' && <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} translations={translations} language={language} />}
                   
-                  {currentView === 'timetable' && (
-                     <TimetableDisplay loading={loading} error={error} displayedData={formattedData} currentView={currentView} favorites={favorites} toggleFavorite={toggleFavorite} notificationSubscriptions={notificationSubscriptions} toggleNotificationSubscription={toggleNotificationSubscription} addToGoogleCalendar={addToGoogleCalendar} openContentPopup={openContentPopup} language={language} handleIconMouseEnter={handleIconMouseEnter} handleIconMouseLeave={handleIconMouseLeave} translations={translations} selectedEvent={selectedEvent} searchTerm={searchTerm} showMessageBox={showMessageBox} selectedDate={selectedDate} />
+                  {currentView === 'timetable' && selectedEvent && (
+                      <EventViewSwitcher 
+                          viewMode={eventViewMode} 
+                          setViewMode={setEventViewMode} 
+                          language={language} 
+                          translations={translations} 
+                          handleAnimatedUpdate={handleAnimatedUpdate}
+                      />
                   )}
-
-                  {currentView === 'block' && (
-                      <BlockTimetable allData={timetableData} favorites={favorites} selectedEvent={selectedEvent} setSelectedEventInBlock={(e) => handleStickyNav(() => setSelectedEvent(e))} uniqueEvents={uniqueEvents} openContentPopup={openContentPopup} translations={translations} language={language} />
+                  
+                  {currentView === 'timetable' && (
+                     eventViewMode === 'card' ? (
+                        <TimetableDisplay loading={loading && !isInitialLoad} error={error} displayedData={formattedData} currentView={currentView} favorites={favorites} toggleFavorite={toggleFavorite} addToGoogleCalendar={addToGoogleCalendar} openContentPopup={openContentPopup} language={language} handleIconMouseEnter={handleIconMouseEnter} handleIconMouseLeave={handleIconMouseLeave} translations={translations} selectedEvent={selectedEvent} searchTerm={searchTerm} showMessageBox={showMessageBox} selectedDate={selectedDate} />
+                     ) : (
+                        <BlockTimetable allData={timetableData} favorites={favorites} toggleFavorite={toggleFavorite} selectedEvent={selectedEvent} openContentPopup={openContentPopup} translations={translations} language={language} />
+                     )
                   )}
 
                   {currentView === 'favorites' && (
                       <>
                         <div className="flex justify-center gap-4 mt-8 mb-8">
-                            <button onClick={() => setFavoritesViewMode('card')} className={`px-4 py-2 rounded-lg font-semibold ${favoritesViewMode === 'card' ? 'bg-[#1a5b64] text-white' : 'bg-white/30 text-white'}`}>
+                            <button onClick={() => handleAnimatedUpdate(() => setFavoritesViewMode('card'))} className={`px-4 py-2 rounded-lg font-semibold ${favoritesViewMode === 'card' ? 'bg-[#1a5b64] text-white' : 'bg-white/30 text-white'}`}>
                                 {translations[language].common.cardView}
                             </button>
-                            <button onClick={() => setFavoritesViewMode('block')} className={`px-4 py-2 rounded-lg font-semibold ${favoritesViewMode === 'block' ? 'bg-[#1a5b64] text-white' : 'bg-white/30 text-white'}`}>
+                            <button onClick={() => handleAnimatedUpdate(() => setFavoritesViewMode('block'))} className={`px-4 py-2 rounded-lg font-semibold ${favoritesViewMode === 'block' ? 'bg-[#1a5b64] text-white' : 'bg-white/30 text-white'}`}>
                                 {translations[language].common.blockTimetable}
                             </button>
                         </div>
                         {favoritesViewMode === 'card' ? (
-                             <TimetableDisplay loading={loading} error={error} displayedData={formattedData} currentView={currentView} favorites={favorites} toggleFavorite={toggleFavorite} notificationSubscriptions={notificationSubscriptions} toggleNotificationSubscription={toggleNotificationSubscription} addToGoogleCalendar={addToGoogleCalendar} openContentPopup={openContentPopup} language={language} handleIconMouseEnter={handleIconMouseEnter} handleIconMouseLeave={handleIconMouseLeave} translations={translations} selectedEvent={selectedEvent} searchTerm={searchTerm} showMessageBox={showMessageBox} selectedDate={selectedDate} />
+                             <TimetableDisplay loading={loading && !isInitialLoad} error={error} displayedData={formattedData} currentView={currentView} favorites={favorites} toggleFavorite={toggleFavorite} addToGoogleCalendar={addToGoogleCalendar} openContentPopup={openContentPopup} language={language} handleIconMouseEnter={handleIconMouseEnter} handleIconMouseLeave={handleIconMouseLeave} translations={translations} selectedEvent={selectedEvent} searchTerm={searchTerm} showMessageBox={showMessageBox} selectedDate={selectedDate} />
                         ) : (
-                            <BlockTimetable allData={timetableData} favorites={favorites} openContentPopup={openContentPopup} translations={translations} language={language} isFavoritesView={true} />
+                            <BlockTimetable allData={timetableData} favorites={favorites} toggleFavorite={toggleFavorite} openContentPopup={openContentPopup} translations={translations} language={language} isFavoritesView={true}/>
                         )}
                       </>
                   )}
@@ -1703,41 +1954,37 @@ const App = () => {
                       </div>
                   )}
                   {!loading && !error && !searchTerm &&(
-                    <div className="mt-8 mb-24 w-full max-w-[15.75rem] px-4 cursor-pointer mx-auto" onClick={() => openContentPopup('text', translations[language].payWhatYouCan)}>
+                    <div className="mt-8 mb-32 w-full max-w-[15.75rem] px-4 cursor-pointer mx-auto" onClick={() => openContentPopup('text', translations[language].payWhatYouCan)}>
                       <img src="https://cafetheaterfestival.nl/wp-content/uploads/2025/06/Afbeelding_van_WhatsApp_op_2025-06-24_om_11.16.13_85e74e32-removebg-preview.png" alt="[Afbeelding van Pay What You Can tekst]" className="w-full h-auto"/>
                     </div>
                   )}
                 </>
             )}
+          </div>
         </div>
       )
   }
 
   return (
-    <div className="min-h-screen bg-[#20747f] font-sans text-gray-100 flex flex-col items-center relative overflow-x-hidden">
-      <style>{`
-        @keyframes slide-out-up {
-          from { transform: translateY(0); opacity: 1; }
-          to { transform: translateY(-50px); opacity: 0; }
-        }
-        @keyframes slide-in-up {
-          from { transform: translateY(50px); opacity: 0; }
-          to { transform: translateY(0); opacity: 1; }
-        }
-        .animate-slide-out {
-          animation: slide-out-up 0.3s ease-out forwards;
-        }
-        .animate-slide-in {
-          animation: slide-in-up 0.3s ease-out forwards;
-        }
-      `}</style>
+    <div className={`min-h-screen bg-[#20747f] font-sans text-gray-100 flex flex-col items-center relative overflow-x-hidden ${isInitialLoad ? 'h-screen overflow-hidden' : ''}`}>
       
-      <StickyHeader isVisible={showStickyHeader} uniqueEvents={uniqueEvents} handleEventClick={(e) => handleStickyNav(() => {setCurrentView('timetable'); setSelectedEvent(e);})} handleFavoritesClick={() => handleStickyNav(() => setCurrentView('favorites'))} handleBlockTimetableClick={() => handleStickyNav(() => setCurrentView('block'))} onLogoClick={handleStickyLogoClick} selectedEvent={selectedEvent} currentView={currentView} language={language} handleLanguageChange={handleLanguageChange} translations={translations} />
+      <StickyHeader 
+          isVisible={showStickyHeader} 
+          uniqueEvents={uniqueEvents} 
+          handleEventClick={(e) => handleViewChange('timetable', e)} 
+          handleFavoritesClick={() => handleViewChange('favorites')} 
+          onLogoClick={handleStickyLogoClick} 
+          selectedEvent={selectedEvent} 
+          currentView={currentView} 
+          language={language} 
+          handleLanguageChange={handleLanguageChange} 
+          translations={translations} 
+      />
       
       <div className="w-full flex-grow relative">
 
         {/* Initial View */}
-        <div className={`absolute inset-0 transition-all duration-1000 ease-in-out ${isInitialLoad ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'}`}>
+        <div className={`absolute inset-0 transition-all duration-500 ease-in-out ${isInitialLoad ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'}`}>
           <div className="w-full h-full flex flex-col items-center p-4 sm:p-6 md:p-8">
             <div className={`fixed inset-x-0 bottom-0 z-0 transition-opacity duration-700 ${isInitialLoad ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
               <div className="relative w-full max-w-2xl mx-auto">
@@ -1755,7 +2002,13 @@ const App = () => {
               <AppHeader translations={translations} language={language} titleRef={titleRef} />
               {!loading && (
                 <div>
-                  <EventNavigation onEventSelect={handleEventSelect} onFavoritesSelect={handleFavoritesSelect} onBlockTimetableSelect={handleBlockTimetableSelect} uniqueEvents={uniqueEvents} language={language} translations={translations} />
+                  <EventNavigation 
+                      onEventSelect={(e) => handleViewChange('timetable', e)} 
+                      onFavoritesSelect={() => handleViewChange('favorites')} 
+                      uniqueEvents={uniqueEvents} 
+                      language={language} 
+                      translations={translations} 
+                  />
                 </div>
               )}
             </div>
@@ -1763,8 +2016,8 @@ const App = () => {
         </div>
 
         {/* Main Content View */}
-        <div className={`absolute inset-0 transition-all duration-1000 ease-in-out ${isInitialLoad ? 'translate-y-full opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'}`}>
-          <div key={contentKey} id="main-content-area" className={`w-full h-full overflow-y-auto p-4 sm:p-6 md:p-8 ${showStickyHeader ? 'pt-24 sm:pt-20' : ''} ${animationClass}`}>
+        <div className={`absolute inset-0 transition-all duration-500 ease-in-out ${isInitialLoad ? 'translate-y-full opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'}`}>
+          <div id="main-content-area" className={`w-full h-full overflow-y-auto p-4 sm:p-6 md:p-8 ${showStickyHeader ? 'pt-24 sm:pt-20' : ''}`}>
             {renderMainContent()}
           </div>
         </div>
@@ -1773,7 +2026,7 @@ const App = () => {
       <PopupModal showPopup={showPopup} closePopup={closePopup} popupContent={popupContent} language={language} translations={translations} />
       <PrivacyPolicyModal showPrivacyPolicy={showPrivacyPolicy} setShowPrivacyPolicy={setShowPrivacyPolicy} language={language} renderPrivacyPolicyContent={renderPrivacyPolicyContent} translations={translations} />
       <CustomTooltip showCustomTooltip={showCustomTooltip} customTooltipContent={customTooltipContent} customTooltipPosition={customTooltipPosition} />
-      <MessageBox message={messageBoxContent} show={messageBoxShow} onClose={closeMessageBox} onAction={messageBoxAction} actionButtonText={messageBoxActionButtonText} />
+      <MessageBox show={messageBoxConfig.show} title={messageBoxConfig.title} message={messageBoxConfig.message} buttons={messageBoxConfig.buttons} />
       <FooterButtons openContentPopup={openContentPopup} language={language} translations={translations} showPopup={showPopup} showStickyHeader={showStickyHeader}/>
     </div>
   );
