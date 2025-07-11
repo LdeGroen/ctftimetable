@@ -1,20 +1,66 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 
+// ========= NIEUW: Error Boundary Component =========
+// Dit component vangt JavaScript-fouten overal in de app op.
+// In plaats van een wit scherm, toont het een duidelijke foutmelding.
+// Dit is essentieel voor het debuggen op apparaten zoals een tablet.
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    // Werk de state bij zodat de volgende render de fallback UI toont.
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    // Je kunt de fout ook loggen naar een externe service
+    console.error("Uncaught error:", error, errorInfo);
+    this.setState({ error: error, errorInfo: errorInfo });
+  }
+
+  render() {
+    if (this.state.hasError) {
+      // Je kunt hier een eigen fallback UI renderen
+      return (
+        <div style={{ padding: '20px', color: 'black', backgroundColor: 'white', height: '100vh' }}>
+          <h1>Oeps, er is iets misgegaan.</h1>
+          <p>Probeer de app opnieuw te laden.</p>
+          <details style={{ whiteSpace: 'pre-wrap' }}>
+            {this.state.error && this.state.error.toString()}
+            <br />
+            {this.state.errorInfo && this.state.errorInfo.componentStack}
+          </details>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+
 // Functie om datumstring te parsen naar een Date-object voor vergelijking en weergave
+// ========= FIX: Aangepast om lokale tijdzone te gebruiken i.p.v. UTC =========
 const parseDateForSorting = (dateString) => {
   if (!dateString || typeof dateString !== 'string') return new Date(NaN);
   
   const trimmedDateString = dateString.trim();
   let day, month, year;
 
+  // Poging 1: "dd-mm-yyyy"
   let [d, m, y] = trimmedDateString.split('-');
   if (d && m && y && !isNaN(parseInt(m, 10))) {
     day = parseInt(d, 10);
     month = parseInt(m, 10);
     year = parseInt(y, 10);
-    return new Date(Date.UTC(year, month - 1, day));
+    // FIX: Gebruik lokale tijdzone i.p.v. Date.UTC
+    return new Date(year, month - 1, day);
   }
   
+  // Maandnamen voor parsing
   const monthNames = {
     'januari': 1, 'jan': 1,
     'februari': 2, 'feb': 2,
@@ -30,21 +76,26 @@ const parseDateForSorting = (dateString) => {
     'december': 12, 'dec': 12
   };
 
+  // Poging 2: "d maand<y_bin_46>
   const parts = trimmedDateString.split(' ');
   if (parts.length === 3 && parts[1]) {
     day = parseInt(parts[0], 10);
     const monthNum = monthNames[parts[1].toLowerCase()];
     year = parseInt(parts[2], 10);
     if (!isNaN(day) && monthNum && !isNaN(year)) {
-      return new Date(Date.UTC(year, monthNum - 1, day));
+      // FIX: Gebruik lokale tijdzone i.p.v. Date.UTC
+      return new Date(year, monthNum - 1, day);
     }
   }
 
+  // Poging 3: Fallback naar de native Date parser
   const parsedDate = new Date(trimmedDateString);
   if (!isNaN(parsedDate.getTime())) {
-      return new Date(Date.UTC(parsedDate.getUTCFullYear(), parsedDate.getUTCMonth(), parsedDate.getUTCDate()));
+      // FIX: Retourneer direct de geparste datum (die al lokaal is)
+      return parsedDate;
   }
 
+  // Als niets werkt, retourneer een ongeldige datum
   return new Date(NaN);
 };
 
@@ -62,6 +113,8 @@ const translations = {
       loading: 'Timetable wordt ingeladen...',
       errorOops: 'Oeps, er ging iets mis!',
       errorLoading: 'Fout bij het laden van de dienstregeling. Probeer het later opnieuw of controleer de URL/sheet-structuur.',
+      errorTimeout: 'De verbinding duurde te lang. Controleer je internetverbinding en probeer het opnieuw.',
+      offlineIndicator: 'Offline modus: de getoonde gegevens zijn mogelijk verouderd.',
       tryAgain: 'Opnieuw proberen',
       noFavoritesFound: 'Geen favoriete voorstellingen gevonden.',
       noSearchResults: 'Geen resultaten gevonden voor \'%s\'.',
@@ -129,7 +182,26 @@ const translations = {
       fullNotificationTitle: 'Voorstelling Vol',
       fullNotificationBody: 'Let op: %s is nu vol. Kijk in de app voor een alternatief!',
       dontAskAgain: 'Niet meer vragen',
-      later: 'Later'
+      later: 'Later',
+      exportFavorites: 'Exporteer Favorieten',
+      exportFavoritesTitle: 'Exporteer je favorieten',
+      exportAs: 'Exporteer als...',
+      export: 'Exporteer',
+      exporting: 'Exporteren...',
+      exportError: 'Fout bij exporteren. Probeer het opnieuw.',
+      shareFavorites: 'Deel mijn CTF Favorieten!',
+      shareAsImage: 'Afbeelding',
+      shareAsLink: 'Deel als link',
+      shareLinkTitle: 'Mijn CTF Favorieten',
+      shareLinkBody: 'Hoi! Dit zijn mijn favoriete voorstellingen voor het Café Theater Festival. Open de link om ze te bekijken en te importeren in je eigen timetable app!',
+      importFavorites: 'Importeer Favorieten',
+      import: 'Importeer',
+      cancel: 'Annuleren',
+      favoritesFromFriend: 'Favorieten van een vriend',
+      importSuccess: 'Favorieten van vriend succesvol geïmporteerd!',
+      friendsFavorites: 'Favorieten van Vrienden',
+      noFriendsFavoritesFound: 'Geen favorieten van vrienden gevonden.',
+      removeFriendsFavorites: 'Verwijder favorieten van vrienden',
     },
     payWhatYouCan: {
       title: "Pay What You Can",
@@ -142,10 +214,14 @@ Na de voorstelling komen de makers langs om te vragen om een financiële bijdrag
       text: `Dit is onze druktemeter! Hier kun je van tevoren zien hoe druk we verwachten dat het bij een voorstelling wordt. We updaten deze druktemeter live, dus je kunt in je app zien als een voorstelling vol is.
 
 **Uitleg kleuren:**
-- Groen= de verwachtte drukte bij deze voorstelling is normaal. Als je op tijd komt kun je waarschijnlijk een zitplekje vinden
-- Oranje= De verwachtte drukte bij deze voorstelling is druk. We verwachten dat een deel van het publiek moet staan bij deze voorstelling om het goed te kunnen zien
-- Rood= De verwachtte drukte bij deze voorstelling is erg druk. Kom op tijd, want het zou zo maar kunnen dat deze voorstelling vol raakt
-- Rode balk met kruis: Deze voorstelling zit vol! Je kunt nog wel naar een van de andere voorstellingen gaan`
+
+**Groen**= de verwachtte drukte bij deze voorstelling is normaal. Als je op tijd komt kun je waarschijnlijk een zitplekje vinden
+
+**Oranje**= De verwachtte drukte bij deze voorstelling is druk. We verwachten dat een deel van het publiek moet staan bij deze voorstelling om het goed te kunnen zien
+
+**Rood**= De verwachtte drukte bij deze voorstelling is erg druk. Kom op tijd, want het zou zo maar kunnen dat deze voorstelling vol raakt
+
+**Rode balk met kruis**= Deze voorstelling zit vol! Je kunt nog wel naar een van de andere voorstellingen gaan`
     },
     calmRouteInfo: {
       title: 'Rustige Route',
@@ -207,6 +283,8 @@ Let op: de voorstellingen in de rustige route zijn niet prikkel-arm. Vanwege het
       loading: 'Timetable is loading...',
       errorOops: 'Oops, something went wrong!',
       errorLoading: 'Error loading the timetable. Please try again later or check the URL/sheet structure.',
+      errorTimeout: 'The connection timed out. Please check your internet connection and try again.',
+      offlineIndicator: 'Offline mode: The data shown may be outdated.',
       tryAgain: 'Try again',
       noFavoritesFound: 'No favorite shows found.',
       noSearchResults: 'No results found for \'%s\'.',
@@ -274,7 +352,26 @@ Let op: de voorstellingen in de rustige route zijn niet prikkel-arm. Vanwege het
       fullNotificationTitle: 'Performance Full',
       fullNotificationBody: 'Please note: %s is now full. Check the app for an alternative!',
       dontAskAgain: 'Don\'t ask again',
-      later: 'Later'
+      later: 'Later',
+      exportFavorites: 'Export Favorites',
+      exportFavoritesTitle: 'Export your favorites',
+      exportAs: 'Export as...',
+      export: 'Export',
+      exporting: 'Exporting...',
+      exportError: 'Error during export. Please try again.',
+      shareFavorites: 'Share my CTF Favorites!',
+      shareAsImage: 'Image',
+      shareAsLink: 'Share as link',
+      shareLinkTitle: 'My CTF Favorites',
+      shareLinkBody: 'Hi! These are my favorite performances for the Café Theater Festival. Open the link to view them and import them into your own timetable app!',
+      importFavorites: 'Import Favorites',
+      import: 'Import',
+      cancel: 'Cancel',
+      favoritesFromFriend: 'A friend\'s favorites',
+      importSuccess: 'Successfully imported friend\'s favorites!',
+      friendsFavorites: 'Friends\' Favorites',
+      noFriendsFavoritesFound: 'No friends\' favorites found.',
+      removeFriendsFavorites: 'Remove friends\' favorites',
     },
     payWhatYouCan: {
       title: "Pay What You Can",
@@ -287,10 +384,14 @@ After the performance, the makers will ask for a financial contribution of **€
       text: `This is our crowd meter! Here you can see in advance how busy we expect a performance to be. We update this crowd meter live, so you can see in your app if a performance is full.
 
 **Explanation of colors:**
-- Green= The expected crowd for this performance is normal. If you arrive on time, you will probably find a seat
-- Orange= The expected crowd for this performance is busy. We expect some of the audience to stand to see it well
-- Red= The expected crowd for this performance is very busy. Arrive on time, as this performance might fill up
-- Red bar with cross: This performance is full! You can still go to one of the other performances`
+
+**Green**= The expected crowd for this performance is normal. If you arrive on time, you will probably find a seat
+
+**Orange**= The expected crowd for this performance is busy. We expect some of the audience to stand to see it well
+
+**Red**= The expected crowd for this performance is very busy. Arrive on time, as this performance might fill up
+
+**Red bar with cross**= This performance is full! You can still go to one of the other performances`
     },
     calmRouteInfo: {
         title: 'Calm Route',
@@ -332,7 +433,7 @@ Please note: the performances in the calm route are not low-stimulus. Due to the
 
       Since all relevant data is stored locally on your device, the security risks are minimal.
 
-      **6. Changes to This Privacy Policy**
+      **6. Wijzigingen in Dit Privacybeleid**
 
       We may update this privacy policy from time to time. Changes are effective immediately after being posted in the app.
 
@@ -415,12 +516,13 @@ const AppHeader = ({ titleRef, translations, language }) => (
 );
 
 // Sticky Header component
-const StickyHeader = ({ isVisible, uniqueEvents, handleEventClick, handleFavoritesClick, selectedEvent, currentView, language, handleLanguageChange, translations, onLogoClick }) => {
+const StickyHeader = ({ isVisible, uniqueEvents, handleEventClick, handleFavoritesClick, handleFriendsFavoritesClick, hasFriendsFavorites, selectedEvent, currentView, language, handleLanguageChange, translations, onLogoClick }) => {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
     
     let currentSelectionText = translations[language].common.chooseCity;
     if (currentView === 'favorites') currentSelectionText = translations[language].common.favorites;
+    else if (currentView === 'friends-favorites') currentSelectionText = translations[language].common.friendsFavorites;
     else if (selectedEvent) currentSelectionText = selectedEvent;
 
     useEffect(() => {
@@ -448,7 +550,9 @@ const StickyHeader = ({ isVisible, uniqueEvents, handleEventClick, handleFavorit
                                 <div className="origin-top-right absolute right-1/2 translate-x-1/2 mt-2 w-56 rounded-md shadow-lg bg-[#1a5b64] ring-1 ring-black ring-opacity-5 focus:outline-none">
                                     <div className="py-1" role="menu" aria-orientation="vertical">
                                         {uniqueEvents.map(event => (<a href="#" key={event} onClick={(e) => { e.preventDefault(); handleEventClick(event); setIsDropdownOpen(false); }} className="block px-4 py-2 text-sm text-white hover:bg-[#20747f] text-center" role="menuitem">{event}</a>))}
-                                        <a href="#" onClick={(e) => { e.preventDefault(); handleFavoritesClick(); setIsDropdownOpen(false); }} className="block px-4 py-2 text-sm text-white hover:bg-[#20747f] text-center border-t border-white/20" role="menuitem">{translations[language].common.favorites}</a>
+                                        <div className="border-t border-white/20 my-1"></div>
+                                        <a href="#" onClick={(e) => { e.preventDefault(); handleFavoritesClick(); setIsDropdownOpen(false); }} className="block px-4 py-2 text-sm text-white hover:bg-[#20747f] text-center" role="menuitem">{translations[language].common.favorites}</a>
+                                        {hasFriendsFavorites && <a href="#" onClick={(e) => { e.preventDefault(); handleFriendsFavoritesClick(); setIsDropdownOpen(false); }} className="block px-4 py-2 text-sm text-white hover:bg-[#20747f] text-center" role="menuitem">{translations[language].common.friendsFavorites}</a>}
                                     </div>
                                 </div>
                             )}
@@ -465,12 +569,13 @@ const StickyHeader = ({ isVisible, uniqueEvents, handleEventClick, handleFavorit
 
 
 // Component voor de evenementnavigatiebalk op het startscherm
-const EventNavigation = ({ onEventSelect, onFavoritesSelect, uniqueEvents, language, translations, refProp }) => (
+const EventNavigation = ({ onEventSelect, onFavoritesSelect, onFriendsFavoritesSelect, hasFriendsFavorites, uniqueEvents, language, translations, refProp }) => (
     <div ref={refProp} className="flex flex-wrap justify-center gap-4 mb-8 p-3 max-w-full">
         {uniqueEvents.map(event => (
             <button key={event} onClick={() => onEventSelect(event)} className="px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-200 bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50">{event}</button>
         ))}
         <button onClick={onFavoritesSelect} className="px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-200 bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50">{translations[language].common.favorites}</button>
+        {hasFriendsFavorites && <button onClick={onFriendsFavoritesSelect} className="px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-200 bg-white bg-opacity-30 text-gray-100 hover:bg-opacity-50">{translations[language].common.friendsFavorites}</button>}
     </div>
 );
 
@@ -529,7 +634,7 @@ const EventViewSwitcher = ({ viewMode, setViewMode, language, translations, hand
 
 
 // Voorstellingskaart
-const PerformanceCard = ({ item, favorites, toggleFavorite, addToGoogleCalendar, openContentPopup, language, handleIconMouseEnter, handleIconMouseLeave, translations, showMessageBox, hideTime = false }) => {
+const PerformanceCard = ({ item, favorites, toggleFavorite, addToGoogleCalendar, openContentPopup, language, handleIconMouseEnter, handleIconMouseLeave, translations, showMessageBox, hideTime = false, isExportMode = false, isFriendsView = false }) => {
     const getCrowdLevelInfo = useCallback((level) => {
         const defaultInfo = { fullBar: false, position: '10%', tooltip: translations[language].common.tooltipCrowdLevelGreenFull, label: null, barClass: 'bg-gradient-to-r from-green-600 via-yellow-500 to-red-600' };
         switch (level?.toLowerCase()) {
@@ -551,25 +656,28 @@ const PerformanceCard = ({ item, favorites, toggleFavorite, addToGoogleCalendar,
         const shareText = translations[language].common.shareBody.replace('%s', title);
         const shareData = { title, text: shareText, url: url || window.location.href };
         
-        if (navigator.share) {
-            try {
+        try {
+            if (navigator.share) {
                 await navigator.share(shareData);
                 return; 
-            } catch (error) {
-                if (error.name === 'AbortError') return;
-                console.warn('navigator.share failed, trying clipboard fallback:', error);
+            }
+        } catch (error) {
+            if (error.name !== 'AbortError') {
+                 console.warn('navigator.share failed, trying clipboard fallback:', error);
+            } else {
+                return; // User cancelled share, do nothing.
             }
         }
 
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            try {
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
                 await navigator.clipboard.writeText(shareData.url);
                 showMessageBox(translations[language].common.shareSuccess);
-            } catch (error) {
-                console.error('Failed to copy to clipboard:', error);
-                showMessageBox(translations[language].common.shareError);
+            } else {
+                 throw new Error('Clipboard API not available');
             }
-        } else {
+        } catch (error) {
+            console.error('Failed to copy to clipboard:', error);
             showMessageBox(translations[language].common.shareError);
         }
     };
@@ -591,7 +699,7 @@ const PerformanceCard = ({ item, favorites, toggleFavorite, addToGoogleCalendar,
     };
 
     return (
-        <div className={`text-gray-800 p-4 rounded-xl shadow-xl border border-gray-200 transition-all duration-300 flex flex-col relative min-h-[180px] w-full md:w-[384px] bg-white ${isCancelled || isFull ? 'opacity-50' : 'hover:scale-105 hover:shadow-2xl cursor-pointer'}`} onClick={() => !isCancelled && !isFull && openContentPopup('iframe', item.url)}>
+        <div className={`text-gray-800 p-4 rounded-xl shadow-xl border border-gray-200 transition-all duration-300 flex flex-col relative min-h-[180px] w-full md:w-[384px] bg-white ${isCancelled || isFull ? 'opacity-50' : 'hover:scale-105 hover:shadow-2xl cursor-pointer'}`} onClick={() => !isCancelled && !isFull && !isExportMode && openContentPopup('iframe', item.url)}>
             {!hideTime && <p className="text-xl font-bold text-gray-800 mb-2">{item.time}</p>}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full mb-2">
                 <h3 className="text-lg font-semibold text-[#20747f] mb-2 sm:mb-0 sm:mr-4">{fullTitle}</h3>
@@ -602,7 +710,7 @@ const PerformanceCard = ({ item, favorites, toggleFavorite, addToGoogleCalendar,
              <div className="flex items-start gap-x-6 mb-4">
                 <div className="flex-1">
                     <p className="text-sm font-semibold text-gray-700 mb-1">{translations[language].common.location}</p>
-                    <a href={item.googleMapsUrl || '#'} target="_blank" rel="noopener noreferrer" onClick={(e) => { if (!item.googleMapsUrl) e.preventDefault(); e.stopPropagation(); }} className={`flex items-center text-[#20747f] text-md font-semibold ${item.googleMapsUrl ? 'hover:text-[#1a5b64] cursor-pointer' : 'cursor-default'} transition-colors duration-200`} title={item.googleMapsUrl ? translations[language].common.openLocationInGoogleMaps : ''}>
+                    <a href={item.googleMapsUrl || '#'} target="_blank" rel="noopener noreferrer" onClick={(e) => { if (!item.googleMapsUrl || isExportMode) e.preventDefault(); e.stopPropagation(); }} className={`flex items-center text-[#20747f] text-md font-semibold ${item.googleMapsUrl && !isExportMode ? 'hover:text-[#1a5b64] cursor-pointer' : 'cursor-default'} transition-colors duration-200`} title={item.googleMapsUrl ? translations[language].common.openLocationInGoogleMaps : ''}>
                         {item.location}
                         {item.googleMapsUrl && (
                             <span className="ml-1 text-[#20747f]">
@@ -615,7 +723,7 @@ const PerformanceCard = ({ item, favorites, toggleFavorite, addToGoogleCalendar,
                     </a>
                 </div>
                 {!hideTime && crowdInfo && (
-                  <div className="flex-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); openContentPopup('text', translations[language].crowdMeterInfo); }}>
+                  <div className="flex-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); if (!isExportMode) openContentPopup('text', translations[language].crowdMeterInfo); }}>
                     <p className="text-sm font-semibold text-gray-700 mb-1">{translations[language].common.crowdLevel}</p>
                     <div className={`relative w-full h-4 rounded-full ${crowdInfo.barClass}`} onMouseEnter={(e) => handleIconMouseEnter(e, crowdInfo.tooltip)} onMouseLeave={handleIconMouseLeave}>
                         {crowdInfo.fullBar ? (<div className="absolute inset-0 flex items-center justify-center"><span className="text-white font-bold text-xs uppercase">{crowdInfo.label}</span></div>)
@@ -624,25 +732,34 @@ const PerformanceCard = ({ item, favorites, toggleFavorite, addToGoogleCalendar,
                   </div>
                 )}
             </div>
-             <div className="absolute top-4 right-4 flex flex-row space-x-2">
-                {!hideTime && !isCancelled && !isFull && Object.entries(actionIcons).map(([type, icon]) => {
-                    const clickHandlers = { favorite: (e) => toggleFavorite(item, e), calendar: (e) => addToGoogleCalendar(e, fullTitle, item.date, item.time, item.location), share: (e) => handleShare(e, fullTitle, item.url) };
-                    return (
-                        <div key={type} className="cursor-pointer" onClick={clickHandlers[type]} title={icon.title}>
-                           <svg xmlns="http://www.w3.org/2000/svg" className={`h-7 w-7 transition-colors duration-200 ${icon.className}`} viewBox="0 0 24 24" fill={icon.fill} stroke={icon.stroke} strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">{icon.path}</svg>
-                        </div>
-                    );
-                })}
-            </div>
+             {!isExportMode && (
+                <div className="absolute top-4 right-4 flex flex-row space-x-2">
+                    {!hideTime && !isCancelled && !isFull && !isFriendsView && Object.entries(actionIcons).map(([type, icon]) => {
+                        const clickHandlers = { favorite: (e) => toggleFavorite(item, e), calendar: (e) => addToGoogleCalendar(e, fullTitle, item.date, item.time, item.location), share: (e) => handleShare(e, fullTitle, item.url) };
+                        return (
+                            <div key={type} className="cursor-pointer" onClick={clickHandlers[type]} title={icon.title}>
+                               <svg xmlns="http://www.w3.org/2000/svg" className={`h-7 w-7 transition-colors duration-200 ${icon.className}`} viewBox="0 0 24 24" fill={icon.fill} stroke={icon.stroke} strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">{icon.path}</svg>
+                            </div>
+                        );
+                    })}
+                    {isFriendsView && (
+                         <div className="cursor-pointer" onClick={(e) => toggleFavorite(item, e)} title={actionIcons.favorite.title}>
+                             <svg xmlns="http://www.w3.org/2000/svg" className={`h-7 w-7 transition-colors duration-200 ${actionIcons.favorite.className}`} viewBox="0 0 24 24" fill={actionIcons.favorite.fill} stroke={actionIcons.favorite.stroke} strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">{actionIcons.favorite.path}</svg>
+                         </div>
+                    )}
+                </div>
+             )}
             <div className="flex flex-col sm:flex-row justify-between items-center mt-auto pt-4 border-t border-gray-200 w-full gap-4">
                 <div className="flex flex-row flex-wrap justify-start items-center gap-2">
                     {safetyIcons.map(icon => item.safetyInfo[icon.key] && (<span key={icon.key} className="text-gray-600 flex items-center" onMouseEnter={(e) => handleIconMouseEnter(e, icon.tooltip)} onMouseLeave={handleIconMouseLeave}><img src={icon.url} alt={icon.tooltip} className="h-6 w-auto inline-block"/></span>))}
                 </div>
-                <div className="flex flex-col sm:flex-row gap-2">
-                    {item.isCalmRoute && (<button onClick={(e) => { e.stopPropagation(); openContentPopup('calmRouteInfo', translations[language].calmRouteInfo);}} className="px-4 py-2 bg-[#20747f] text-white rounded-lg shadow-md hover:bg-[#1a5b64] transition-all duration-200 text-sm font-semibold text-center">{translations[language].common.calmRoute}</button>)}
-                    {item.pwycLink && (<button onClick={(e) => { e.stopPropagation(); window.open(item.pwycLink, '_blank'); }} className="px-4 py-2 bg-[#20747f] text-white rounded-lg shadow-md hover:bg-[#1a5b64] transition-all duration-200 text-sm font-semibold text-center" title={translations[language].payWhatYouCan.title}>{translations[language].payWhatYouCan.title}</button>)}
-                    <button onClick={(e) => { e.stopPropagation(); openContentPopup('iframe', item.url); }} className="px-4 py-2 bg-[#20747f] text-white rounded-lg shadow-md hover:bg-[#1a5b64] transition-all duration-200 text-sm" disabled={!item.url || item.url === 'N/A'}>{translations[language].common.moreInfo}</button>
-                </div>
+                {!isExportMode && (
+                    <div className="flex flex-col sm:flex-row gap-2">
+                        {item.isCalmRoute && (<button onClick={(e) => { e.stopPropagation(); openContentPopup('calmRouteInfo', translations[language].calmRouteInfo);}} className="px-4 py-2 bg-[#20747f] text-white rounded-lg shadow-md hover:bg-[#1a5b64] transition-all duration-200 text-sm font-semibold text-center">{translations[language].common.calmRoute}</button>)}
+                        {item.pwycLink && (<button onClick={(e) => { e.stopPropagation(); window.open(item.pwycLink, '_blank'); }} className="px-4 py-2 bg-[#20747f] text-white rounded-lg shadow-md hover:bg-[#1a5b64] transition-all duration-200 text-sm font-semibold text-center" title={translations[language].payWhatYouCan.title}>{translations[language].payWhatYouCan.title}</button>)}
+                        <button onClick={(e) => { e.stopPropagation(); openContentPopup('iframe', item.url); }} className="px-4 py-2 bg-[#20747f] text-white rounded-lg shadow-md hover:bg-[#1a5b64] transition-all duration-200 text-sm" disabled={!item.url || item.url === 'N/A'}>{translations[language].common.moreInfo}</button>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -650,11 +767,11 @@ const PerformanceCard = ({ item, favorites, toggleFavorite, addToGoogleCalendar,
 
 
 // Component voor het weergeven van de dienstregeling of favorieten
-const TimetableDisplay = ({
+const TimetableDisplay = React.forwardRef(({
   loading, error, displayedData, currentView, favorites, toggleFavorite,
   addToGoogleCalendar, openContentPopup, language, handleIconMouseEnter, handleIconMouseLeave, translations,
-  selectedEvent, searchTerm, showMessageBox, selectedDate
-}) => {
+  selectedEvent, searchTerm, showMessageBox, selectedDate, isExportMode = false
+}, ref) => {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center p-6 bg-white bg-opacity-20 rounded-xl shadow-lg animate-pulse">
@@ -687,6 +804,8 @@ const TimetableDisplay = ({
             ? translations[language].common.noSearchResults.replace('%s', `'${searchTerm}'`)
             : currentView === 'favorites'
             ? translations[language].common.noFavoritesFound
+            : currentView === 'friends-favorites'
+            ? translations[language].common.noFriendsFavoritesFound
             : translations[language].common.noDataFound.replace('%s', (selectedEvent || ''))
           }
         </p>
@@ -695,9 +814,10 @@ const TimetableDisplay = ({
   }
 
   const isAllPerformancesView = selectedDate === 'all-performances';
+  const isFriendsView = currentView === 'friends-favorites';
 
   return (
-    <div className="w-full max-w-6xl mx-auto">
+    <div ref={ref} className="w-full max-w-6xl mx-auto">
       {displayedData.map((group, index) => (
         <div key={index} className="mb-8">
           {group.groupTitle && (
@@ -731,6 +851,8 @@ const TimetableDisplay = ({
                     translations={translations}
                     showMessageBox={showMessageBox}
                     hideTime={isAllPerformancesView}
+                    isExportMode={isExportMode}
+                    isFriendsView={isFriendsView}
                   />
                 ))}
               </div>
@@ -740,21 +862,22 @@ const TimetableDisplay = ({
       ))}
     </div>
   );
-};
+});
 
 
 // Vereenvoudigd Blokkenschema component
-const BlockTimetable = ({ allData, favorites, toggleFavorite, selectedEvent, openContentPopup, translations, language, isFavoritesView = false }) => {
+const BlockTimetable = React.forwardRef(({ allData, favorites, toggleFavorite, selectedEvent, openContentPopup, translations, language, isFavoritesView = false, isFriendsView = false, friendsFavorites = new Set(), isExportMode = false }, ref) => {
     const [selectedDay, setSelectedDay] = useState(null);
 
-    const sourceData = useMemo(() => 
-        isFavoritesView ? allData.filter(p => favorites.has(p.id)) : allData,
-        [isFavoritesView, allData, favorites]
-    );
+    const sourceData = useMemo(() => {
+        if (isFavoritesView) return allData.filter(p => favorites.has(p.id));
+        if (isFriendsView) return allData.filter(p => friendsFavorites.has(p.id));
+        return allData;
+    }, [isFavoritesView, isFriendsView, allData, favorites, friendsFavorites]);
 
     const eventPerformances = useMemo(() => 
-        isFavoritesView ? sourceData : sourceData.filter(p => p.event === selectedEvent), 
-        [isFavoritesView, sourceData, selectedEvent]
+        (isFavoritesView || isFriendsView) ? sourceData : sourceData.filter(p => p.event === selectedEvent), 
+        [isFavoritesView, isFriendsView, sourceData, selectedEvent]
     );
 
     const availableDays = useMemo(() => 
@@ -767,7 +890,7 @@ const BlockTimetable = ({ allData, favorites, toggleFavorite, selectedEvent, ope
         if (!availableDays.includes(selectedDay)) {
             setSelectedDay(availableDays[0] || null);
         }
-    }, [selectedEvent, availableDays, selectedDay]);
+    }, [selectedEvent, availableDays, selectedDay, isFavoritesView, isFriendsView]);
 
     const gridData = useMemo(() => {
         if (!selectedDay) return { locations: [], timeSlots: [], grid: {} };
@@ -813,7 +936,7 @@ const BlockTimetable = ({ allData, favorites, toggleFavorite, selectedEvent, ope
         return { locations, timeSlots, grid };
     }, [selectedDay, eventPerformances]);
     
-    if (!isFavoritesView && !selectedEvent) {
+    if (!isFavoritesView && !isFriendsView && !selectedEvent) {
         return <div className="text-center text-white p-4">{translations[language].common.chooseCity}</div>
     }
 
@@ -825,7 +948,7 @@ const BlockTimetable = ({ allData, favorites, toggleFavorite, selectedEvent, ope
         const isFavorite = favorites.has(performance.id);
         const fullTitle = performance.artist ? `${performance.artist} - ${performance.title}` : performance.title;
 
-        let cellBgClass = 'bg-[#1a5b64] hover:bg-[#2e9aaa]';
+        let cellBgClass = isExportMode ? 'bg-[#2e9aaa]' : 'bg-[#1a5b64] hover:bg-[#2e9aaa]';
         let content = <>{fullTitle}</>;
 
         if (isCancelled) {
@@ -848,19 +971,19 @@ const BlockTimetable = ({ allData, favorites, toggleFavorite, selectedEvent, ope
         
         return (
             <div 
-                onClick={() => !isCancelled && openContentPopup('iframe', performance.url)}
-                className={`relative text-white text-xs p-2 rounded-md w-full h-full flex flex-col items-center justify-center text-center transition-colors ${!isCancelled ? 'cursor-pointer' : ''} ${cellBgClass}`}
+                onClick={() => !isCancelled && !isExportMode && openContentPopup('iframe', performance.url)}
+                className={`relative text-white text-xs p-2 rounded-md w-full h-full flex flex-col items-center justify-center text-center transition-colors ${!isCancelled && !isExportMode ? 'cursor-pointer' : ''} ${cellBgClass}`}
             >
                 <div className="w-full pr-6">
                     {content}
                 </div>
-                {!isCancelled && (
+                {!isCancelled && !isFriendsView && (
                     <div
-                        onClick={(e) => { e.stopPropagation(); toggleFavorite(performance, e); }}
-                        className="absolute top-1 right-1 cursor-pointer p-1"
-                        title={isFavorite ? translations[language].common.removeFromFavorites : translations[language].common.addToFavorites}
+                        onClick={(e) => { if (!isExportMode) { e.stopPropagation(); toggleFavorite(performance, e); } }}
+                        className={`absolute top-1 right-1 p-1 ${!isExportMode ? 'cursor-pointer' : 'pointer-events-none'}`}
+                        title={!isExportMode ? (isFavorite ? translations[language].common.removeFromFavorites : translations[language].common.addToFavorites) : ''}
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 transition-colors duration-200 ${isFavorite ? 'text-red-500' : 'text-white/70 hover:text-white'}`} viewBox="0 0 24 24" fill={isFavorite ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${isFavorite ? 'text-red-500' : 'text-white/70'}`} viewBox="0 0 24 24" fill={isFavorite ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                            <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 22.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                         </svg>
                     </div>
@@ -869,8 +992,14 @@ const BlockTimetable = ({ allData, favorites, toggleFavorite, selectedEvent, ope
         );
     };
 
+    const getEmptyMessage = () => {
+      if (isFavoritesView) return translations[language].common.noFavoritesFound;
+      if (isFriendsView) return translations[language].common.noFriendsFavoritesFound;
+      return translations[language].common.noDataFound.replace('%s', selectedEvent);
+    }
+
     return (
-        <div className="w-full text-white">
+        <div ref={ref} className="w-full text-white">
             <div className="flex flex-wrap justify-center gap-2 sm:gap-3 md:gap-4 mb-8 p-3 bg-white bg-opacity-20 rounded-xl shadow-lg max-w-full overflow-x-auto scrollbar-hide">
                 {availableDays.length > 0 ? availableDays.map(day => (
                     <button 
@@ -880,16 +1009,14 @@ const BlockTimetable = ({ allData, favorites, toggleFavorite, selectedEvent, ope
                     >
                         {day}
                     </button>
-                )) : <p>{isFavoritesView ? translations[language].common.noFavoritesFound : translations[language].common.noDataFound.replace('%s', selectedEvent)}</p>}
+                )) : <p>{getEmptyMessage()}</p>}
             </div>
             
             <div className={`transition-opacity duration-300 ${!selectedDay ? 'opacity-0' : 'opacity-100'}`}>
                 {availableDays.length > 0 && selectedDay && (
-                    <div className="overflow-x-auto bg-black bg-opacity-20 p-4 rounded-lg">
+                    <div className={`overflow-x-auto ${isExportMode ? 'bg-[#20747f]' : 'bg-black bg-opacity-20'} p-4 rounded-lg`}>
                         <div className="inline-grid gap-px" style={{ gridTemplateColumns: `100px repeat(${gridData.timeSlots.length}, 120px)` }}>
-                            {/* Cel in de linkerbovenhoek. `sticky` en `z-20` zorgen ervoor dat deze boven alles blijft. */}
                             <div className="sticky top-0 left-0 bg-[#20747f] z-20"></div> 
-                            {/* Tijd-headers. `sticky top-0` zorgt ervoor dat deze bovenaan blijven. */}
                             {gridData.timeSlots.map(time => (
                                 <div key={time} className="sticky top-0 text-center font-bold p-2 border-b border-white/20 bg-[#20747f] z-10">
                                     {time}
@@ -897,7 +1024,6 @@ const BlockTimetable = ({ allData, favorites, toggleFavorite, selectedEvent, ope
                             ))}
                             {gridData.locations.map((loc, locIndex) => (
                                 <React.Fragment key={loc}>
-                                    {/* Locatiecel: `sticky left-0` zorgt ervoor dat deze aan de linkerkant vast blijft zitten tijdens horizontaal scrollen. */}
                                     <div className="sticky left-0 p-2 font-bold bg-[#20747f] z-10 text-right pr-2 border-r border-white/20 flex items-center justify-end" style={{ gridRow: locIndex + 2 }}>
                                         <span>{loc}</span>
                                     </div>
@@ -917,7 +1043,7 @@ const BlockTimetable = ({ allData, favorites, toggleFavorite, selectedEvent, ope
             </div>
         </div>
     );
-};
+});
 
 
 // Component voor een inzoombare afbeelding
@@ -1152,19 +1278,85 @@ const MessageBox = ({ show, title, message, buttons }) => {
   );
 };
 
-// Component voor de footer buttons
-const FooterButtons = ({ openContentPopup, language, translations, showPopup, showStickyHeader }) => (
-  <div className={`fixed bottom-16 sm:bottom-4 inset-x-0 z-30 flex justify-center space-x-4 transition-opacity duration-300 ${showPopup || !showStickyHeader ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-    <div className="p-3 bg-white/20 rounded-lg backdrop-blur-sm">
-      <button onClick={() => openContentPopup('iframe', 'https://form.jotform.com/223333761374051')} className="px-6 py-3 bg-white text-[#20747f] rounded-lg shadow-md hover:bg-gray-100 transition-all duration-200 text-base font-semibold">
-        {translations[language].common.becomeRegularGuest}
-      </button>
+// Export Modal Component
+const ExportModal = ({ show, onClose, onExport, language, translations, isExporting }) => {
+    
+    if (!show) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[100]">
+            <div className="bg-white rounded-lg p-6 shadow-xl max-w-sm w-full text-gray-800">
+                <h3 className="text-xl font-bold text-center mb-6">{translations.common.exportFavoritesTitle}</h3>
+                
+                <div className="space-y-4">
+                    <button
+                        onClick={() => onExport('image')}
+                        disabled={isExporting}
+                        className="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-4 rounded-lg transition duration-300 disabled:bg-gray-400 flex items-center justify-center gap-2"
+                    >
+                         {isExporting ? translations.common.exporting : translations.common.shareAsImage}
+                    </button>
+                    <button
+                        onClick={() => onExport('link')}
+                        disabled={isExporting}
+                        className="w-full bg-[#20747f] hover:bg-[#1a5b64] text-white font-bold py-3 px-4 rounded-lg transition duration-300 disabled:bg-gray-400 flex items-center justify-center gap-2"
+                    >
+                        {isExporting ? translations.common.exporting : translations.common.shareAsLink}
+                    </button>
+                </div>
+
+                 <button onClick={onClose} className="w-full mt-6 text-gray-600 hover:text-gray-800 font-semibold py-2">
+                    {translations.common.close}
+                </button>
+            </div>
+        </div>
+    );
+};
+
+// Import Favorites Modal
+const ImportFavoritesModal = ({ show, onClose, onImport, performances, language, translations }) => {
+    if (!show || !performances || performances.length === 0) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[100]">
+            <div className="bg-white rounded-lg p-6 shadow-xl max-w-md w-full text-gray-800 flex flex-col max-h-[80vh]">
+                <h3 className="text-xl font-bold text-center mb-4">{translations.common.favoritesFromFriend}</h3>
+                <div className="overflow-y-auto flex-grow mb-6 border-t border-b py-4">
+                    <ul className="space-y-2">
+                        {performances.map(item => (
+                            <li key={item.id} className="p-2 bg-gray-100 rounded-md">
+                                <p className="font-semibold text-[#20747f]">{item.artist ? `${item.artist} - ${item.title}` : item.title}</p>
+                                <p className="text-sm text-gray-600">{item.date} - {item.time} @ {item.location}</p>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+                <div className="flex justify-around gap-4">
+                    <button onClick={onClose} className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-lg transition duration-300">
+                        {translations.common.cancel}
+                    </button>
+                    <button onClick={onImport} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition duration-300">
+                        {translations.common.import}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ========= NIEUW: Offline Indicator Component =========
+const OfflineIndicator = ({ isOffline, language, translations }) => {
+  if (!isOffline) return null;
+  return (
+    <div className="fixed top-0 sm:top-20 left-0 right-0 bg-yellow-500 text-black text-center p-2 z-30 text-sm font-semibold shadow-lg">
+      {translations[language].common.offlineIndicator}
     </div>
-  </div>
-);
+  );
+};
+
 
 // De hoofdcomponent van de app
-const App = () => {
+const AppContent = () => { // Renamed from App to AppContent
   const [timetableData, setTimetableData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -1189,22 +1381,31 @@ const App = () => {
   const [showStickyHeader, setShowStickyHeader] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [favoritesViewMode, setFavoritesViewMode] = useState('card');
+  const [friendsFavoritesViewMode, setFriendsFavoritesViewMode] = useState('card');
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [eventViewMode, setEventViewMode] = useState('card');
-  const [isContentVisible, setIsContentVisible] = useState(true); // State voor content animatie
+  const [isContentVisible, setIsContentVisible] = useState(true);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportConfig, setExportConfig] = useState(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
+  const [friendsFavorites, setFriendsFavorites] = useState(new Set());
+  const [showImportPopup, setShowImportPopup] = useState(false);
+  const [sharedFavoritesForImport, setSharedFavoritesForImport] = useState([]);
 
   const titleRef = useRef(null);
   const sponsorRef = useRef(null);
   const notificationTimeouts = useRef({});
   const prevTimetableDataRef = useRef([]);
+  const exportCardViewRef = useRef(null);
+  const exportBlockViewRef = useRef(null);
   
-  // Functie voor geanimeerde updates
   const handleAnimatedUpdate = useCallback((updateFunction) => {
     setIsContentVisible(false);
     setTimeout(() => {
       updateFunction();
       setIsContentVisible(true);
-    }, 300); // Moet overeenkomen met de duur van de CSS-transitie
+    }, 300);
   }, []);
 
   const closeMessageBox = useCallback(() => setMessageBoxConfig(prev => ({ ...prev, show: false })), []);
@@ -1213,6 +1414,123 @@ const App = () => {
     const finalButtons = buttons.length > 0 ? buttons : [{ text: 'OK', onClick: closeMessageBox, className: 'bg-gray-200 hover:bg-gray-300 text-gray-800' }];
     setMessageBoxConfig({ show: true, message, buttons: finalButtons, title });
   }, [closeMessageBox]);
+
+  useEffect(() => {
+    const scriptId = 'html-to-image-script';
+    if (document.getElementById(scriptId)) return;
+    const script = document.createElement('script');
+    script.id = scriptId;
+    script.src = "https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js";
+    script.async = true;
+    document.body.appendChild(script);
+  }, []);
+
+  const generateAndShareImage = useCallback(async (element) => {
+      if (!element) {
+          console.error("Export failed: element is null.");
+          showMessageBox(translations[language].common.exportError);
+          return;
+      }
+      try {
+          document.body.style.backgroundColor = '#20747f';
+          const options = { quality: 0.95, backgroundColor: '#20747f', cacheBust: true, imagePlaceholder: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', pixelRatio: 2 };
+          const dataUrl = await window.htmlToImage.toPng(element, options);
+          document.body.style.backgroundColor = '';
+
+          if (window.AndroidBridge && window.AndroidBridge.shareImage) {
+              const base64Data = dataUrl.split(',')[1];
+              const title = translations[language].common.shareFavorites;
+              const text = translations[language].common.shareFavorites;
+              const filename = 'ctf-favorieten.png';
+              window.AndroidBridge.shareImage(base64Data, filename, title, text);
+          } else {
+              const blob = await (await fetch(dataUrl)).blob();
+              const file = new File([blob], 'ctf-favorieten.png', { type: 'image/png' });
+              if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                  await navigator.share({ files: [file], title: translations[language].common.shareFavorites, text: translations[language].common.shareFavorites });
+              } else {
+                  const a = document.createElement('a');
+                  a.href = dataUrl;
+                  a.download = 'ctf-favorieten.png';
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+              }
+          }
+      } catch (error) {
+          console.error('Oops, something went wrong during export!', error);
+          showMessageBox(translations[language].common.exportError);
+          document.body.style.backgroundColor = '';
+      }
+  }, [language, translations, showMessageBox]);
+
+  const handleExport = useCallback(async (type) => {
+    if (type === 'link') {
+        // Create a map for quick ID to index lookup
+        const idToIndexMap = new Map(timetableData.map((item, index) => [item.id, index]));
+        
+        // Get indices for favorite IDs
+        const favoriteIndices = Array.from(favorites)
+            .map(id => idToIndexMap.get(id))
+            .filter(index => index !== undefined); // Make sure we only have valid indices
+
+        // Join indices and encode
+        const encodedIndices = btoa(favoriteIndices.join(',')); 
+
+        const publicBaseUrl = 'https://ldegroen.github.io/ctftimetable/';
+        // Use a new, shorter query param
+        const url = `${publicBaseUrl}?fav_indices=${encodedIndices}`;
+        
+        const shareData = {
+            title: translations[language].common.shareLinkTitle,
+            text: translations[language].common.shareLinkBody,
+            url: url,
+        };
+
+        try {
+            if (navigator.share) {
+                await navigator.share(shareData);
+            } else {
+                await navigator.clipboard.writeText(url);
+                showMessageBox(translations[language].common.shareSuccess);
+            }
+        } catch (err) {
+            console.error('Error sharing link:', err);
+            showMessageBox(translations[language].common.shareError);
+        }
+        setShowExportModal(false);
+    } else if (type === 'image') {
+        setExportConfig({ type: favoritesViewMode });
+    }
+  }, [favorites, language, translations, showMessageBox, favoritesViewMode, timetableData]);
+
+  useEffect(() => {
+    if (!exportConfig) return;
+
+    const doExport = async () => {
+        setIsExporting(true);
+        // Use a small timeout to allow the offscreen component to render
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        const elementRef = exportConfig.type === 'card' 
+            ? exportCardViewRef.current 
+            : exportBlockViewRef.current;
+            
+        if (elementRef && typeof window.htmlToImage !== 'undefined') {
+            await generateAndShareImage(elementRef);
+        } else {
+            console.error("Export prerequisites not met. Element or htmlToImage missing.");
+            showMessageBox(translations[language].common.exportError);
+        }
+        
+        setIsExporting(false);
+        setExportConfig(null);
+        setShowExportModal(false);
+    };
+
+    doExport();
+  }, [exportConfig, generateAndShareImage, language, translations, showMessageBox]);
+
 
   useEffect(() => {
     const handleScroll = () => {
@@ -1225,21 +1543,46 @@ const App = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const returnToInitialView = useCallback(() => {
+      setIsInitialLoad(true);
+      setSelectedEvent(null);
+      setSelectedDate(null);
+      setSearchTerm('');
+      setShowStickyHeader(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // Maak de URL schoon
+      try {
+        window.history.replaceState({ view: 'initial' }, '', window.location.pathname + '#');
+      } catch (e) {
+        console.warn("Could not update history state:", e);
+      }
+  }, []);
+  
   const handleViewChange = useCallback((view, event = null) => {
     setIsTransitioning(true);
-    const newState = { view: 'detail', event, viewMode: 'card', currentView: view };
-    const hash = event ? `#${event}` : (view === 'favorites' ? '#favorites' : '');
     
-    if (window.history.state?.view !== 'detail') {
-        window.history.pushState(newState, '', hash);
-    } else {
-        window.history.replaceState(newState, '', hash);
-    }
+    const updateUrl = () => {
+        let hash = '#'; // Default hash
+        if (view === 'timetable' && event) hash = `#${encodeURIComponent(event)}`;
+        else if (view === 'favorites') hash = '#favorites';
+        else if (view === 'friends-favorites') hash = '#friends-favorites';
+
+        const newUrl = window.location.pathname + hash;
+        const state = { view: 'detail', event, viewMode: 'card', currentView: view };
+
+        try {
+            window.history.replaceState(state, '', newUrl);
+        } catch (e) {
+            console.warn("Could not update history state:", e);
+        }
+    };
+    
+    updateUrl();
 
     setTimeout(() => {
         setCurrentView(view);
         setSelectedEvent(event);
-        setEventViewMode('card');
+        if (view === 'timetable') setEventViewMode('card');
         setIsInitialLoad(false);
         setShowStickyHeader(true);
 
@@ -1249,6 +1592,8 @@ const App = () => {
             setSelectedDate(firstDateForEvent || 'all-performances');
         } else if (view === 'favorites') {
             setSelectedDate('favorites-view');
+        } else if (view === 'friends-favorites') {
+            setSelectedDate('friends-favorites-view');
         }
         
         requestAnimationFrame(() => {
@@ -1266,17 +1611,15 @@ const App = () => {
     }, 300);
   }, [timetableData]);
 
-  const returnToInitialView = useCallback(() => {
-      setIsInitialLoad(true);
-      setSelectedEvent(null);
-      setSelectedDate(null);
-      setSearchTerm('');
-      setShowStickyHeader(false);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
+  // NIEUWE FUNCTIE: Verwijder favorieten van vrienden
+  const handleClearFriendsFavorites = useCallback(() => {
+      setFriendsFavorites(new Set());
+      localStorage.removeItem('ctfFriendsFavorites');
+      returnToInitialView();
+  }, [returnToInitialView]);
+
 
   const handleStickyLogoClick = useCallback(() => {
-    window.history.pushState({ view: 'initial' }, '', window.location.href.split('#')[0]);
     returnToInitialView();
   }, [returnToInitialView]);
 
@@ -1289,18 +1632,40 @@ const App = () => {
               setIsInitialLoad(false);
               setCurrentView(state.currentView || 'timetable');
               setSelectedEvent(state.event);
-              setEventViewMode(state.viewMode || 'card');
+              if(state.currentView === 'timetable') setEventViewMode(state.viewMode || 'card');
               setShowStickyHeader(true);
           }
       };
 
       window.addEventListener('popstate', handlePopState);
-      window.history.replaceState({ view: 'initial' }, '', window.location.href.split('#')[0]);
+      
+      // Initial state setup based on URL hash AND query params
+      const processUrl = () => {
+        const hash = window.location.hash.substring(1);
+        
+        if (hash === 'favorites') {
+            handleViewChange('favorites');
+        } else if (hash === 'friends-favorites') {
+            handleViewChange('friends-favorites');
+        } else if (hash) {
+            handleViewChange('timetable', decodeURIComponent(hash));
+        } else {
+            try {
+                window.history.replaceState({ view: 'initial' }, '', window.location.pathname + '#');
+            } catch (e) {
+                console.warn("Could not update history state:", e);
+            }
+        }
+      };
+      
+      // We call processUrl after the data is loaded inside the `init` useEffect
+      // to ensure `handleViewChange` has access to the timetable data.
 
       return () => {
           window.removeEventListener('popstate', handlePopState);
       };
-  }, [returnToInitialView]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const openContentPopup = useCallback((type, data) => {
     let finalData = data;
@@ -1317,11 +1682,37 @@ const App = () => {
 
   const closePopup = useCallback(() => setShowPopup(false), []); 
 
+  // ========= WIJZIGING: useEffect om notificatie data op te halen bij start =========
   useEffect(() => {
-    const isModalOpen = showPopup || showPrivacyPolicy || messageBoxConfig.show;
+    // Deze functie wordt aangeroepen zodra de app is geladen.
+    const checkForInitialNotification = () => {
+      if (window.AndroidBridge && typeof window.AndroidBridge.getInitialNotificationData === 'function') {
+        try {
+          const jsonData = window.AndroidBridge.getInitialNotificationData();
+          if (jsonData) {
+            const data = JSON.parse(jsonData);
+            if (data && data.url) {
+              // We hebben data! Open de pop-up.
+              console.log("Notificatie data ontvangen van native:", data);
+              openContentPopup('iframe', data.url);
+            }
+          }
+        } catch (e) {
+          console.error("Fout bij het ophalen/parsen van initiële notificatie data:", e);
+        }
+      }
+    };
+    
+    // Een kleine vertraging om zeker te zijn dat de bridge er is.
+    const timer = setTimeout(checkForInitialNotification, 100);
+    return () => clearTimeout(timer);
+  }, [openContentPopup]);
+  // =================================================================================
+
+  useEffect(() => {
+    const isModalOpen = showPopup || showPrivacyPolicy || messageBoxConfig.show || showExportModal || showImportPopup;
     const mainContentEl = document.getElementById('main-content-area');
 
-    // Set styles when modal opens or closes
     if (isModalOpen) {
       document.body.style.overflow = 'hidden';
       if (mainContentEl) mainContentEl.style.overflow = 'hidden';
@@ -1330,17 +1721,19 @@ const App = () => {
       if (mainContentEl) mainContentEl.style.overflow = 'auto';
     }
 
-    // Cleanup function to restore scrolling when component unmounts
     return () => {
       document.body.style.overflow = '';
       if (mainContentEl) mainContentEl.style.overflow = 'auto';
     };
-  }, [showPopup, showPrivacyPolicy, messageBoxConfig.show]);
+  }, [showPopup, showPrivacyPolicy, messageBoxConfig.show, showExportModal, showImportPopup]);
 
   useEffect(() => {
     try {
       const storedFavorites = JSON.parse(localStorage.getItem('ctfTimetableFavorites'));
       if (storedFavorites) setFavorites(new Set(storedFavorites));
+
+      const storedFriendsFavorites = JSON.parse(localStorage.getItem('ctfFriendsFavorites'));
+      if (storedFriendsFavorites) setFriendsFavorites(new Set(storedFriendsFavorites));
       
       const storedCustomNotifs = JSON.parse(localStorage.getItem('ctfScheduledCustomNotifications'));
        if (storedCustomNotifs) setScheduledCustomNotifications(new Set(storedCustomNotifs));
@@ -1354,16 +1747,20 @@ const App = () => {
   useEffect(() => { localStorage.setItem('appLanguage', language); }, [language]);
 
   useEffect(() => {
-    window.openPerformancePopupFromNative = (title, url) => openContentPopup('iframe', url);
+    // window.openPerformancePopupFromNative = (title, url) => openContentPopup('iframe', url);
     return () => {
-      delete window.openPerformancePopupFromNative;
+      // delete window.openPerformancePopupFromNative;
       Object.values(notificationTimeouts.current).forEach(clearTimeout);
     };
   }, [openContentPopup]); 
 
   useEffect(() => {
-    if (!window.AndroidBridge && 'Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission();
+    try {
+        if (window.AndroidBridge === undefined && 'Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+    } catch (e) {
+        console.error("Error requesting notification permission:", e);
     }
   }, []); 
 
@@ -1385,9 +1782,13 @@ const App = () => {
   };
 
   const fetchTimetableData = useCallback(async () => {
-    setLoading(true); setError(null);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 seconden time-out
+
     try {
-        const response = await fetch(googleSheetUrl);
+        const response = await fetch(googleSheetUrl, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const csvText = await response.text();
 
@@ -1397,9 +1798,8 @@ const App = () => {
 
         for (let i = 0; i < lines.length; i++) {
             const cells = parseCsvLine(lines[i]);
-            if (cells.length < 22) continue; // Check for new column count
+            if (cells.length < 22) continue;
 
-            // New column mapping
             const [
                 date, time, artist, title, genre, url, event, sponsorLogoUrl,
                 pwycLink, location, googleMapsUrl, mapNumber, mapImageUrl,
@@ -1420,7 +1820,7 @@ const App = () => {
             }
 
             allParsedData.push({
-                id: `${event}-${date}-${time}-${artist}-${title}`, // Updated ID for uniqueness
+                id: `${event}-${date}-${time}-${artist}-${title}`,
                 date, time, artist, title, location, url, event,
                 googleMapsUrl, pwycLink, mapNumber, mapImageUrl, genre, isCalmRoute: calm.toLowerCase() === 'x',
                 crowdLevel: crowd,
@@ -1436,7 +1836,7 @@ const App = () => {
             });
         }
         
-        setEventInfoMap(localEventInfoMap);
+        const uniqueEventsForDisplay = [...new Set(allParsedData.map(item => item.event).filter(Boolean))].sort((a,b) => (parseDateForSorting(localEventInfoMap[a]?.dateString) || 0) - (parseDateForSorting(localEventInfoMap[b]?.dateString) || 0));
 
         const now = new Date();
         const cutoffTime = new Date(now.getTime() - 30 * 60 * 1000);
@@ -1449,33 +1849,137 @@ const App = () => {
             return perfDate >= cutoffTime;
         });
 
+        setError(null);
+        setIsOffline(false);
         setTimetableData(filteredDataForDisplay);
+        setEventInfoMap(localEventInfoMap);
+        setUniqueEvents(uniqueEventsForDisplay);
         
-        const uniqueEventsForDisplay = [...new Set(allParsedData.map(item => item.event).filter(Boolean))];
-        setUniqueEvents(uniqueEventsForDisplay.sort((a,b) => (parseDateForSorting(localEventInfoMap[a]?.dateString) || 0) - (parseDateForSorting(localEventInfoMap[b]?.dateString) || 0)));
+        localStorage.setItem('ctfTimetableCache', JSON.stringify({
+            data: filteredDataForDisplay,
+            eventInfoMap: localEventInfoMap,
+            uniqueEvents: uniqueEventsForDisplay,
+            timestamp: new Date().getTime()
+        }));
         
-    } catch (err) {
-      console.error("Fout bij het ophalen/parsen van gegevens:", err);
-      setError(translations[language].common.errorLoading);
-    } finally {
-      setLoading(false);
-    }
-  }, [language, translations]);
+        // Return data for import check
+        return filteredDataForDisplay;
 
-  // Effect to fetch data periodically
+    } catch (err) {
+        console.error("Fout bij het ophalen van gegevens:", err);
+        
+        if (timetableData.length > 0) {
+            setIsOffline(true);
+        } else {
+            if (err.name === 'AbortError') {
+                 setError(translations[language].common.errorTimeout);
+            } else {
+                 setError(translations[language].common.errorLoading);
+            }
+        }
+        // Return existing data on error
+        return timetableData;
+    }
+  }, [language, translations, timetableData]);
+
   useEffect(() => {
-    fetchTimetableData();
-    const intervalId = setInterval(fetchTimetableData, 120000); // Poll every 2 minutes
+    const init = async () => {
+        setLoading(true);
+        let dataFromCache = [];
+        
+        try {
+            const cached = localStorage.getItem('ctfTimetableCache');
+            if (cached) {
+                const { data, eventInfoMap, uniqueEvents } = JSON.parse(cached);
+                dataFromCache = data || [];
+                setTimetableData(dataFromCache);
+                setEventInfoMap(eventInfoMap || {});
+                setUniqueEvents(uniqueEvents || []);
+            }
+        } catch (e) {
+            console.error("Kon cache niet laden", e);
+            localStorage.removeItem('ctfTimetableCache');
+        }
+        
+        const fetchedData = await fetchTimetableData();
+        const finalData = fetchedData.length > 0 ? fetchedData : dataFromCache;
+
+        // Check for import URL parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        const favoriteIndicesParam = urlParams.get('fav_indices');
+        const favoriteIdsParam = urlParams.get('favorites'); // For backward compatibility
+
+        let performancesToImport = [];
+
+        if (favoriteIndicesParam) {
+            try {
+                const decodedIndices = atob(favoriteIndicesParam).split(',').map(Number);
+                performancesToImport = decodedIndices.map(index => finalData[index]).filter(Boolean);
+            } catch (e) {
+                console.error("Error decoding favorite indices from URL", e);
+            }
+        } else if (favoriteIdsParam) {
+            try {
+                const decodedIds = atob(favoriteIdsParam).split(',');
+                performancesToImport = finalData.filter(p => decodedIds.includes(p.id));
+            } catch (e) {
+                console.error("Error decoding favorite IDs from URL", e);
+            }
+        }
+
+        if (performancesToImport.length > 0) {
+            setSharedFavoritesForImport(performancesToImport);
+            setShowImportPopup(true);
+        } else {
+            // If no import, process the hash for navigation
+            const hash = window.location.hash.substring(1);
+            if (hash === 'favorites') {
+                handleViewChange('favorites');
+            } else if (hash === 'friends-favorites') {
+                handleViewChange('friends-favorites');
+            } else if (hash) {
+                handleViewChange('timetable', decodeURIComponent(hash));
+            } else {
+                try {
+                    window.history.replaceState({ view: 'initial' }, '', window.location.pathname + '#');
+                } catch (e) {
+                    console.warn("Could not update history state:", e);
+                }
+            }
+        }
+        
+        setLoading(false);
+    };
+
+    init();
+
+    const intervalId = setInterval(fetchTimetableData, 120000);
+
     return () => clearInterval(intervalId);
-  }, [fetchTimetableData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); 
+
+  const handleImportFavorites = () => {
+      const importedIds = new Set(sharedFavoritesForImport.map(p => p.id));
+      setFriendsFavorites(importedIds);
+      localStorage.setItem('ctfFriendsFavorites', JSON.stringify(Array.from(importedIds)));
+      setShowImportPopup(false);
+      setSharedFavoritesForImport([]);
+      showMessageBox(translations[language].common.importSuccess);
+      
+      // The call to handleViewChange will update the URL and remove the query parameters.
+      handleViewChange('friends-favorites');
+  };
 
   const openSettingsWithFallback = useCallback(() => {
-      if (window.AndroidBridge) {
-          if (typeof window.AndroidBridge.openExactAlarmSettings === 'function') {
-              window.AndroidBridge.openExactAlarmSettings();
-          } else if (typeof window.AndroidBridge.openAppSettings === 'function') {
-              window.AndroidBridge.openAppSettings();
-          }
+      try {
+        if (window.AndroidBridge?.openExactAlarmSettings) {
+            window.AndroidBridge.openExactAlarmSettings();
+        } else if (window.AndroidBridge?.openAppSettings) {
+            window.AndroidBridge.openAppSettings();
+        }
+      } catch (e) {
+        console.error("Failed to open Android settings:", e);
       }
       closeMessageBox(); 
   }, [closeMessageBox]);
@@ -1501,35 +2005,39 @@ const App = () => {
 
   useEffect(() => {
     const checkPermissionsOnLoad = async () => {
-      if (window.AndroidBridge && !permissionRequestDismissed && !loading) {
-        const canSchedule = await window.AndroidBridge.canScheduleExactAlarms();
-        if (!canSchedule) {
-          showMessageBox(
-            translations[language].common.exactAlarmPermissionNeededBody,
-            [
-              {
-                text: translations[language].common.openSettings,
-                onClick: openSettingsWithFallback,
-                className: 'bg-[#20747f] hover:bg-[#1a5b64] text-white'
-              },
-              {
-                text: translations[language].common.dontAskAgain,
-                onClick: () => {
-                  localStorage.setItem('ctfNotificationPermissionDismissed', 'true');
-                  setPermissionRequestDismissed(true);
-                  closeMessageBox();
+      try {
+        if (window.AndroidBridge && !permissionRequestDismissed && !loading) {
+          const canSchedule = await window.AndroidBridge.canScheduleExactAlarms();
+          if (!canSchedule) {
+            showMessageBox(
+              translations[language].common.exactAlarmPermissionNeededBody,
+              [
+                {
+                  text: translations[language].common.openSettings,
+                  onClick: openSettingsWithFallback,
+                  className: 'bg-[#20747f] hover:bg-[#1a5b64] text-white'
                 },
-                className: 'bg-gray-500 hover:bg-gray-600 text-white'
-              },
-              {
-                text: translations[language].common.later,
-                onClick: closeMessageBox,
-                className: 'bg-gray-200 hover:bg-gray-300 text-gray-800'
-              }
-            ],
-            translations[language].common.exactAlarmPermissionNeededTitle
-          );
+                {
+                  text: translations[language].common.dontAskAgain,
+                  onClick: () => {
+                    localStorage.setItem('ctfNotificationPermissionDismissed', 'true');
+                    setPermissionRequestDismissed(true);
+                    closeMessageBox();
+                  },
+                  className: 'bg-gray-500 hover:bg-gray-600 text-white'
+                },
+                {
+                  text: translations[language].common.later,
+                  onClick: closeMessageBox,
+                  className: 'bg-gray-200 hover:bg-gray-300 text-gray-800'
+                }
+              ],
+              translations[language].common.exactAlarmPermissionNeededTitle
+            );
+          }
         }
+      } catch (e) {
+        console.error("Error checking Android permissions:", e);
       }
     };
     const timer = setTimeout(checkPermissionsOnLoad, 1000);
@@ -1537,92 +2045,103 @@ const App = () => {
   }, [loading, permissionRequestDismissed, language, translations, showMessageBox, closeMessageBox, openSettingsWithFallback]);
 
   const scheduleActualNotification = useCallback(async (item) => {
-    const notificationTime = parseDateForSorting(item.date);
-    if (isNaN(notificationTime.getTime()) || !item.time) return;
+    try {
+        const notificationTime = parseDateForSorting(item.date);
+        if (isNaN(notificationTime.getTime()) || !item.time) return;
 
-    const [h, m] = item.time.split(':');
-    notificationTime.setHours(h, m, 0, 0);
+        const [h, m] = item.time.split(':');
+        notificationTime.setHours(h, m, 0, 0);
 
-    const reminderTime = new Date(notificationTime.getTime() - 20 * 60 * 1000);
-    const now = new Date();
-    const fullTitle = item.artist ? `${item.artist} - ${item.title}` : item.title;
+        const reminderTime = new Date(notificationTime.getTime() - 20 * 60 * 1000);
+        const now = new Date();
+        const fullTitle = item.artist ? `${item.artist} - ${item.title}` : item.title;
 
-    if (reminderTime <= now) {
-      if (item.crowdLevel?.toLowerCase() === 'geannuleerd' || item.crowdLevel?.toLowerCase() === 'cancelled') {
-        const title = translations[language].common.cancellationNotificationTitle;
-        const body = translations[language].common.cancellationNotificationBody.replace('%s', fullTitle);
-        if (window.AndroidBridge?.scheduleNativeNotification) {
-          window.AndroidBridge.scheduleNativeNotification(title, body, Date.now(), `cancellation-${item.id}`, '');
-        } else if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification(title, { body });
+        if (reminderTime <= now) {
+            if (item.crowdLevel?.toLowerCase() === 'geannuleerd' || item.crowdLevel?.toLowerCase() === 'cancelled') {
+                const title = translations[language].common.cancellationNotificationTitle;
+                const body = translations[language].common.cancellationNotificationBody.replace('%s', fullTitle);
+                if (window.AndroidBridge?.scheduleNativeNotification) {
+                    const appUrl = `${window.location.origin}${window.location.pathname}#${encodeURIComponent(item.event)}`;
+                    window.AndroidBridge.scheduleNativeNotification(title, body, Date.now(), `cancellation-${item.id}`, appUrl);
+                } else if ('Notification' in window && Notification.permission === 'granted') {
+                    new Notification(title, { body });
+                }
+            }
+            return;
         }
-      }
-      return;
-    }
 
-    const title = translations[language].common.notificationTitle;
-    const body = translations[language].common.notificationBody.replace('%s', fullTitle).replace('%s', item.location);
-    const notificationId = item.id;
+        const title = translations[language].common.notificationTitle;
+        const body = translations[language].common.notificationBody.replace('%s', fullTitle).replace('%s', item.location);
+        const notificationId = item.id;
 
-    if (window.AndroidBridge?.scheduleNativeNotification) {
-      const canSchedule = await window.AndroidBridge.canScheduleExactAlarms();
-      if (!canSchedule) {
-          if (!permissionRequestDismissed) showPermissionDialog();
-          return;
-      }
-      window.AndroidBridge.scheduleNativeNotification(title, body, reminderTime.getTime(), notificationId, '');
-    } else if ('Notification' in window && Notification.permission === 'granted') {
-      const delay = reminderTime.getTime() - now.getTime();
-      if (delay > 0) {
-        if(notificationTimeouts.current[notificationId]) clearTimeout(notificationTimeouts.current[notificationId]);
-        const timeoutId = setTimeout(() => {
-          new Notification(title, { body });
-          delete notificationTimeouts.current[notificationId];
-        }, delay);
-        notificationTimeouts.current[notificationId] = timeoutId;
-      }
+        if (window.AndroidBridge?.scheduleNativeNotification) {
+            const canSchedule = await window.AndroidBridge.canScheduleExactAlarms();
+            if (!canSchedule) {
+                if (!permissionRequestDismissed) showPermissionDialog();
+                return;
+            }
+            window.AndroidBridge.scheduleNativeNotification(title, body, reminderTime.getTime(), notificationId, item.url || '');
+        } else if ('Notification' in window && Notification.permission === 'granted') {
+            const delay = reminderTime.getTime() - now.getTime();
+            if (delay > 0) {
+                if(notificationTimeouts.current[notificationId]) clearTimeout(notificationTimeouts.current[notificationId]);
+                const timeoutId = setTimeout(() => {
+                    new Notification(title, { body });
+                    delete notificationTimeouts.current[notificationId];
+                }, delay);
+                notificationTimeouts.current[notificationId] = timeoutId;
+            }
+        }
+    } catch (e) {
+        console.error("Failed to schedule notification:", e);
     }
   }, [language, translations, showPermissionDialog, permissionRequestDismissed]);
 
   const cancelScheduledNotification = useCallback((performanceId) => {
-    if (window.AndroidBridge?.cancelNativeNotification) {
-      window.AndroidBridge.cancelNativeNotification(performanceId);
-    }
-    if (notificationTimeouts.current[performanceId]) {
-      clearTimeout(notificationTimeouts.current[performanceId]);
-      delete notificationTimeouts.current[performanceId];
+    try {
+        if (window.AndroidBridge?.cancelNativeNotification) {
+            window.AndroidBridge.cancelNativeNotification(performanceId);
+        }
+        if (notificationTimeouts.current[performanceId]) {
+            clearTimeout(notificationTimeouts.current[performanceId]);
+            delete notificationTimeouts.current[performanceId];
+        }
+    } catch (e) {
+        console.error("Failed to cancel notification:", e);
     }
   }, []);
 
   const scheduleStatusNotification = useCallback((item, type) => {
-    let title, body;
-    const fullTitle = item.artist ? `${item.artist} - ${item.title}` : item.title;
+    try {
+        let title, body;
+        const fullTitle = item.artist ? `${item.artist} - ${item.title}` : item.title;
 
-    if (type === 'cancelled') {
-        title = translations[language].common.cancellationNotificationTitle;
-        body = translations[language].common.cancellationNotificationBody.replace('%s', fullTitle);
-    } else if (type === 'full') {
-        title = translations[language].common.fullNotificationTitle;
-        body = translations[language].common.fullNotificationBody.replace('%s', fullTitle);
-    } else {
-        return;
-    }
+        if (type === 'cancelled') {
+            title = translations[language].common.cancellationNotificationTitle;
+            body = translations[language].common.cancellationNotificationBody.replace('%s', fullTitle);
+        } else if (type === 'full') {
+            title = translations[language].common.fullNotificationTitle;
+            body = translations[language].common.fullNotificationBody.replace('%s', fullTitle);
+        } else {
+            return;
+        }
 
-    const notificationId = `${type}-${item.id}-${new Date().getTime()}`;
-    const scheduleTime = Date.now() + 60 * 1000; // 1 minuut in de toekomst
+        const notificationId = `${type}-${item.id}-${new Date().getTime()}`;
+        const scheduleTime = Date.now() + 60 * 1000;
 
-    if (window.AndroidBridge?.scheduleNativeNotification) {
-        // Plan voor Android via de bridge
-        window.AndroidBridge.scheduleNativeNotification(title, body, scheduleTime, notificationId, '');
-    } else if ('Notification' in window && Notification.permission === 'granted') {
-        // Plan voor web met setTimeout
-        setTimeout(() => {
-            new Notification(title, { body, tag: notificationId });
-        }, 60 * 1000);
+        if (window.AndroidBridge?.scheduleNativeNotification) {
+            const appUrl = `${window.location.origin}${window.location.pathname}#${encodeURIComponent(item.event)}`;
+            window.AndroidBridge.scheduleNativeNotification(title, body, scheduleTime, notificationId, appUrl);
+        } else if ('Notification' in window && Notification.permission === 'granted') {
+            setTimeout(() => {
+                new Notification(title, { body, tag: notificationId });
+            }, 60 * 1000);
+        }
+    } catch (e) {
+        console.error("Failed to schedule status notification:", e);
     }
   }, [language, translations]);
 
-  // Effect to check for status changes on favorites
   useEffect(() => {
     if (loading || prevTimetableDataRef.current.length === 0 || favorites.size === 0) {
         return;
@@ -1642,12 +2161,12 @@ const App = () => {
             if (currentStatus !== prevStatus) {
                 if (currentStatus === 'geannuleerd' || currentStatus === 'cancelled') {
                     scheduleStatusNotification(currentItem, 'cancelled');
-                    cancelScheduledNotification(currentItem.id); // Cancel reminder too
-                    favoritesToRemove.add(favId); // Mark for removal
+                    cancelScheduledNotification(currentItem.id);
+                    favoritesToRemove.add(favId);
                 }
                 if (currentStatus === 'vol' || currentStatus === 'full') {
                     scheduleStatusNotification(currentItem, 'full');
-                    favoritesToRemove.add(favId); // Mark for removal
+                    favoritesToRemove.add(favId);
                 }
             }
         }
@@ -1663,57 +2182,60 @@ const App = () => {
     }
   }, [timetableData, favorites, loading, scheduleStatusNotification, cancelScheduledNotification]);
 
-  // Effect to update the previous data ref *after* the main effect has run
   useEffect(() => {
       prevTimetableDataRef.current = timetableData;
   }, [timetableData]);
 
   const processAndScheduleGeneralNotifications = useCallback(async (notifications) => {
-    if (!Array.isArray(notifications)) {
-        console.error("General notifications data is not an array:", notifications);
-        return;
-    }
-
-    let hasPermission = true;
-    if (window.AndroidBridge) {
-        hasPermission = await window.AndroidBridge.canScheduleExactAlarms();
-        if (!hasPermission && !permissionRequestDismissed) {
-            showPermissionDialog();
+    try {
+        if (!Array.isArray(notifications)) {
+            console.error("General notifications data is not an array:", notifications);
             return;
         }
-    } else if (!('Notification' in window) || Notification.permission !== 'granted') {
-        hasPermission = false;
-    }
 
-    const newlyScheduledIds = new Set();
-    const now = new Date();
-
-    for (const notif of notifications) {
-        if (!notif.id || !notif.date) continue;
-        if (scheduledCustomNotifications.has(notif.id)) continue;
-        const notificationDateTime = new Date(notif.date);
-        if (isNaN(notificationDateTime.getTime()) || notificationDateTime <= now) continue;
-        if (!hasPermission) continue;
-
-        const title = translations[language].common.genericNotificationTitle;
-        const body = language === 'nl' ? notif.text_nl : notif.text_en;
-        if (!body) continue;
-        
-        if (window.AndroidBridge?.scheduleNativeNotification) {
-            window.AndroidBridge.scheduleNativeNotification(title, body, notificationDateTime.getTime(), notif.id, '');
-        } else {
-            const delay = notificationDateTime.getTime() - now.getTime();
-            setTimeout(() => { new Notification(title, { body }); }, delay);
+        let hasPermission = true;
+        if (window.AndroidBridge) {
+            hasPermission = await window.AndroidBridge.canScheduleExactAlarms();
+            if (!hasPermission && !permissionRequestDismissed) {
+                showPermissionDialog();
+                return;
+            }
+        } else if (!('Notification' in window) || Notification.permission !== 'granted') {
+            hasPermission = false;
         }
-        newlyScheduledIds.add(notif.id);
-    }
 
-    if (newlyScheduledIds.size > 0) {
-        setScheduledCustomNotifications(prev => {
-            const newSet = new Set([...prev, ...newlyScheduledIds]);
-            localStorage.setItem('ctfScheduledCustomNotifications', JSON.stringify([...newSet]));
-            return newSet;
-        });
+        const newlyScheduledIds = new Set();
+        const now = new Date();
+
+        for (const notif of notifications) {
+            if (!notif.id || !notif.date) continue;
+            if (scheduledCustomNotifications.has(notif.id)) continue;
+            const notificationDateTime = new Date(notif.date);
+            if (isNaN(notificationDateTime.getTime()) || notificationDateTime <= now) continue;
+            if (!hasPermission) continue;
+
+            const title = translations[language].common.genericNotificationTitle;
+            const body = language === 'nl' ? notif.text_nl : notif.text_en;
+            if (!body) continue;
+            
+            if (window.AndroidBridge?.scheduleNativeNotification) {
+                window.AndroidBridge.scheduleNativeNotification(title, body, notificationDateTime.getTime(), notif.id, notif.url || '');
+            } else {
+                const delay = notificationDateTime.getTime() - now.getTime();
+                setTimeout(() => { new Notification(title, { body }); }, delay);
+            }
+            newlyScheduledIds.add(notif.id);
+        }
+
+        if (newlyScheduledIds.size > 0) {
+            setScheduledCustomNotifications(prev => {
+                const newSet = new Set([...prev, ...newlyScheduledIds]);
+                localStorage.setItem('ctfScheduledCustomNotifications', JSON.stringify([...newSet]));
+                return newSet;
+            });
+        }
+    } catch (e) {
+        console.error("Failed to process general notifications:", e);
     }
   }, [language, translations, scheduledCustomNotifications, permissionRequestDismissed, showPermissionDialog]);
 
@@ -1747,6 +2269,8 @@ const App = () => {
 
     if (currentView === 'favorites') {
         sourceData = timetableData.filter(item => favorites.has(item.id));
+    } else if (currentView === 'friends-favorites') {
+        sourceData = timetableData.filter(item => friendsFavorites.has(item.id));
     } else if (searchTerm) {
         sourceData = timetableData.filter(item => 
             (item.artist && item.artist.toLowerCase().includes(lowerCaseSearchTerm)) ||
@@ -1772,7 +2296,7 @@ const App = () => {
     
     if (sourceData.length === 0) return [];
 
-    if ((currentView === 'favorites' && favoritesViewMode === 'card') || searchTerm) {
+    if (currentView === 'favorites' || currentView === 'friends-favorites' || searchTerm) {
         const groupedByEvent = sourceData.reduce((acc, item) => {
             (acc[item.event] = acc[item.event] || []).push(item);
             return acc;
@@ -1816,10 +2340,10 @@ const App = () => {
         items: groupedByDate[date].sort((a, b) => selectedDate === 'all-performances' ? a.title.localeCompare(b.title) : a.time.localeCompare(b.time))
       }))
     }];
-  }, [searchTerm, currentView, selectedEvent, selectedDate, timetableData, favorites, language, translations, favoritesViewMode, eventInfoMap]);
+  }, [searchTerm, currentView, selectedEvent, selectedDate, timetableData, favorites, friendsFavorites, language, translations, eventInfoMap]);
 
   const datesForCurrentSelectedEvent = useMemo(() => {
-    if (currentView === 'favorites' || !selectedEvent) return [];
+    if (currentView === 'favorites' || currentView === 'friends-favorites' || !selectedEvent) return [];
     return [...new Set(timetableData.filter(item => item.event === selectedEvent && item.date).map(item => item.date))]
            .sort((a, b) => parseDateForSorting(a) - parseDateForSorting(b));
   }, [timetableData, selectedEvent, currentView]);
@@ -1859,24 +2383,35 @@ const App = () => {
       console.error("Invalid date or time for calendar event:", date, time);
       return;
     }
-    const year = dateObj.getUTCFullYear();
-    const month = dateObj.getUTCMonth();
-    const day = dateObj.getUTCDate();
+    
+    // Gebruik getFullYear, getMonth, etc. omdat de datum nu lokaal is
+    const year = dateObj.getFullYear();
+    const month = dateObj.getMonth();
+    const day = dateObj.getDate();
+    
     const [startHour, startMinute] = time.split(':').map(Number);
-    const startDate = new Date(Date.UTC(year, month, day, startHour, startMinute));
+    
+    // Creëer de start- en einddatum in de lokale tijdzone
+    const startDate = new Date(year, month, day, startHour, startMinute);
     const endDate = new Date(startDate.getTime() + 30 * 60 * 1000);
+
+    // Formatteer voor Google Calendar. Google is slim genoeg om dit correct te interpreteren.
     const formatForGoogle = (d) => {
-        const yyyy = d.getUTCFullYear();
-        const MM = String(d.getUTCMonth() + 1).padStart(2, '0');
-        const DD = String(d.getUTCDate()).padStart(2, '0');
-        const hh = String(d.getUTCHours()).padStart(2, '0');
-        const mm = String(d.getUTCMinutes()).padStart(2, '0');
-        const ss = String(d.getUTCSeconds()).padStart(2, '0');
-        return `${yyyy}${MM}${DD}T${hh}${mm}${ss}Z`;
+        const yyyy = d.getFullYear(); // FIX: 'പ്രദേശ' is veranderd naar 'yyyy'
+        const MM = String(d.getMonth() + 1).padStart(2, '0');
+        const DD = String(d.getDate()).padStart(2, '0');
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        const ss = String(d.getSeconds()).padStart(2, '0');
+        return `${yyyy}${MM}${DD}T${hh}${mm}${ss}`; // Dit werkt nu correct
     };
-    const startDateString = formatForGoogle(startDate).replace(/[:-]/g, '');
-    const endDateString = formatForGoogle(endDate).replace(/[:-]/g, '');
-    const timezone = 'Europe/Amsterdam';
+
+    const startDateString = formatForGoogle(startDate);
+    const endDateString = formatForGoogle(endDate);
+    
+    // De 'ctz' parameter vertelt Google in welke tijdzone de data is.
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    
     const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${startDateString}/${endDateString}&ctz=${timezone}&details=${encodeURIComponent('Locatie: ' + location)}&location=${encodeURIComponent(location)}&sf=true&output=xml`;
     window.open(url, '_blank');
   }, []);
@@ -1898,12 +2433,40 @@ const App = () => {
         );
       }
       
+      const isFavorites = currentView === 'favorites';
+      const isFriendsFavorites = currentView === 'friends-favorites';
+
+      let currentViewMode = 'card';
+      let setViewModeFunction = () => {};
+      if (isFavorites) {
+        currentViewMode = favoritesViewMode;
+        setViewModeFunction = setFavoritesViewMode;
+      } else if (isFriendsFavorites) {
+        currentViewMode = friendsFavoritesViewMode;
+        setViewModeFunction = setFriendsFavoritesViewMode;
+      } else if (currentView === 'timetable') {
+        currentViewMode = eventViewMode;
+        setViewModeFunction = setEventViewMode;
+      }
+      
       return (
         <div className={`transition-opacity duration-500 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
           <div className={`transition-opacity duration-300 ${isContentVisible ? 'opacity-100' : 'opacity-0'}`}>
-            {(selectedEvent || currentView === 'favorites') && (
+            {(selectedEvent || isFavorites || isFriendsFavorites) && (
                 <>
-                  <SponsorDisplay ref={sponsorRef} sponsorInfo={currentSponsorInfo} language={language} translations={translations} />
+                  {/* WIJZIGING: Conditionele weergave van sponsor of verwijderknop */}
+                  {currentView === 'friends-favorites' && friendsFavorites.size > 0 ? (
+                      <div className="flex flex-col items-center justify-center mt-12 mb-8 text-center">
+                          <button 
+                              onClick={handleClearFriendsFavorites} 
+                              className="px-6 py-3 bg-[#1a5b64] text-white rounded-lg shadow-md hover:bg-[#2e9aaa] transition-all duration-200 text-base font-semibold"
+                          >
+                              {translations[language].common.removeFriendsFavorites}
+                          </button>
+                      </div>
+                  ) : (
+                      <SponsorDisplay ref={sponsorRef} sponsorInfo={currentSponsorInfo} language={language} translations={translations} />
+                  )}
                   
                   {currentView === 'timetable' && !searchTerm && eventViewMode === 'card' && (
                       <DateNavigation datesForCurrentSelectedEvent={datesForCurrentSelectedEvent} selectedDate={selectedDate} setSelectedDate={setSelectedDate} setSearchTerm={setSearchTerm} translations={translations} language={language} selectedEvent={selectedEvent} timetableData={timetableData} />
@@ -1911,40 +2474,28 @@ const App = () => {
 
                   {currentView === 'timetable' && <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} translations={translations} language={language} />}
                   
-                  {currentView === 'timetable' && selectedEvent && (
-                      <EventViewSwitcher 
-                          viewMode={eventViewMode} 
-                          setViewMode={setEventViewMode} 
-                          language={language} 
-                          translations={translations} 
-                          handleAnimatedUpdate={handleAnimatedUpdate}
-                      />
+                  {(isFavorites || isFriendsFavorites || (currentView === 'timetable' && selectedEvent)) && (
+                      <div className="flex flex-wrap justify-center items-center gap-4 my-8">
+                          <EventViewSwitcher 
+                              viewMode={currentViewMode} 
+                              setViewMode={setViewModeFunction}
+                              language={language} 
+                              translations={translations} 
+                              handleAnimatedUpdate={handleAnimatedUpdate}
+                          />
+                          {isFavorites && favorites.size > 0 && (
+                            <button onClick={() => setShowExportModal(true)} className="px-4 py-2 rounded-lg font-semibold bg-green-500 hover:bg-green-600 text-white flex items-center gap-2">
+                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" /></svg>
+                                 {translations[language].common.exportFavorites}
+                            </button>
+                          )}
+                      </div>
                   )}
                   
-                  {currentView === 'timetable' && (
-                     eventViewMode === 'card' ? (
-                        <TimetableDisplay loading={loading && !isInitialLoad} error={error} displayedData={formattedData} currentView={currentView} favorites={favorites} toggleFavorite={toggleFavorite} addToGoogleCalendar={addToGoogleCalendar} openContentPopup={openContentPopup} language={language} handleIconMouseEnter={handleIconMouseEnter} handleIconMouseLeave={handleIconMouseLeave} translations={translations} selectedEvent={selectedEvent} searchTerm={searchTerm} showMessageBox={showMessageBox} selectedDate={selectedDate} />
-                     ) : (
-                        <BlockTimetable allData={timetableData} favorites={favorites} toggleFavorite={toggleFavorite} selectedEvent={selectedEvent} openContentPopup={openContentPopup} translations={translations} language={language} />
-                     )
-                  )}
-
-                  {currentView === 'favorites' && (
-                      <>
-                        <div className="flex justify-center gap-4 mt-8 mb-8">
-                            <button onClick={() => handleAnimatedUpdate(() => setFavoritesViewMode('card'))} className={`px-4 py-2 rounded-lg font-semibold ${favoritesViewMode === 'card' ? 'bg-[#1a5b64] text-white' : 'bg-white/30 text-white'}`}>
-                                {translations[language].common.cardView}
-                            </button>
-                            <button onClick={() => handleAnimatedUpdate(() => setFavoritesViewMode('block'))} className={`px-4 py-2 rounded-lg font-semibold ${favoritesViewMode === 'block' ? 'bg-[#1a5b64] text-white' : 'bg-white/30 text-white'}`}>
-                                {translations[language].common.blockTimetable}
-                            </button>
-                        </div>
-                        {favoritesViewMode === 'card' ? (
-                             <TimetableDisplay loading={loading && !isInitialLoad} error={error} displayedData={formattedData} currentView={currentView} favorites={favorites} toggleFavorite={toggleFavorite} addToGoogleCalendar={addToGoogleCalendar} openContentPopup={openContentPopup} language={language} handleIconMouseEnter={handleIconMouseEnter} handleIconMouseLeave={handleIconMouseLeave} translations={translations} selectedEvent={selectedEvent} searchTerm={searchTerm} showMessageBox={showMessageBox} selectedDate={selectedDate} />
-                        ) : (
-                            <BlockTimetable allData={timetableData} favorites={favorites} toggleFavorite={toggleFavorite} openContentPopup={openContentPopup} translations={translations} language={language} isFavoritesView={true}/>
-                        )}
-                      </>
+                  {currentViewMode === 'card' ? (
+                     <TimetableDisplay loading={loading && !isInitialLoad} error={error} displayedData={formattedData} currentView={currentView} favorites={favorites} toggleFavorite={toggleFavorite} addToGoogleCalendar={addToGoogleCalendar} openContentPopup={openContentPopup} language={language} handleIconMouseEnter={handleIconMouseEnter} handleIconMouseLeave={handleIconMouseLeave} translations={translations} selectedEvent={selectedEvent} searchTerm={searchTerm} showMessageBox={showMessageBox} selectedDate={selectedDate} />
+                  ) : (
+                     <BlockTimetable allData={timetableData} favorites={favorites} friendsFavorites={friendsFavorites} toggleFavorite={toggleFavorite} selectedEvent={selectedEvent} openContentPopup={openContentPopup} translations={translations} language={language} isFavoritesView={isFavorites} isFriendsView={isFriendsFavorites} />
                   )}
                   
                   {currentView !== 'block' && selectedEvent && eventInfoMap[selectedEvent]?.mapUrl && !loading && !error && (
@@ -1953,9 +2504,19 @@ const App = () => {
                           <img src={eventInfoMap[selectedEvent].mapUrl} alt={`[Afbeelding van Kaart ${selectedEvent}]`} className="w-full h-auto rounded-lg shadow-lg border-4 border-white/50 hover:border-white transition-all"/>
                       </div>
                   )}
-                  {!loading && !error && !searchTerm &&(
-                    <div className="mt-8 mb-32 w-full max-w-[15.75rem] px-4 cursor-pointer mx-auto" onClick={() => openContentPopup('text', translations[language].payWhatYouCan)}>
-                      <img src="https://cafetheaterfestival.nl/wp-content/uploads/2025/06/Afbeelding_van_WhatsApp_op_2025-06-24_om_11.16.13_85e74e32-removebg-preview.png" alt="[Afbeelding van Pay What You Can tekst]" className="w-full h-auto"/>
+                  {/* ========= WIJZIGING: "Word Stamgast" en "Pay What You Can" verplaatst en responsive gemaakt ========= */}
+                  {!loading && !error && !searchTerm && (
+                    <div className="mt-8 mb-32 w-full max-w-lg mx-auto px-4 flex flex-col sm:flex-row items-center justify-center gap-8">
+                        {/* Pay What You Can Image/Button */}
+                        <div className="w-full sm:w-1/2 cursor-pointer" onClick={() => openContentPopup('text', translations[language].payWhatYouCan)}>
+                            <img src="https://cafetheaterfestival.nl/wp-content/uploads/2025/06/Afbeelding_van_WhatsApp_op_2025-06-24_om_11.16.13_85e74e32-removebg-preview.png" alt="[Afbeelding van Pay What You Can tekst]" className="w-full h-auto"/>
+                        </div>
+                        {/* Become a Regular Guest Button */}
+                        <div className="w-full sm:w-1/2 flex items-center justify-center">
+                            <button onClick={() => openContentPopup('iframe', 'https://form.jotform.com/223333761374051')} className="px-6 py-3 bg-white text-[#20747f] rounded-lg shadow-md hover:bg-gray-100 transition-all duration-200 text-base font-semibold">
+                                {translations[language].common.becomeRegularGuest}
+                            </button>
+                        </div>
                     </div>
                   )}
                 </>
@@ -1973,6 +2534,8 @@ const App = () => {
           uniqueEvents={uniqueEvents} 
           handleEventClick={(e) => handleViewChange('timetable', e)} 
           handleFavoritesClick={() => handleViewChange('favorites')} 
+          handleFriendsFavoritesClick={() => handleViewChange('friends-favorites')}
+          hasFriendsFavorites={friendsFavorites.size > 0}
           onLogoClick={handleStickyLogoClick} 
           selectedEvent={selectedEvent} 
           currentView={currentView} 
@@ -1981,6 +2544,8 @@ const App = () => {
           translations={translations} 
       />
       
+      <OfflineIndicator isOffline={isOffline} language={language} translations={translations} />
+
       <div className="w-full flex-grow relative">
 
         {/* Initial View */}
@@ -2005,6 +2570,8 @@ const App = () => {
                   <EventNavigation 
                       onEventSelect={(e) => handleViewChange('timetable', e)} 
                       onFavoritesSelect={() => handleViewChange('favorites')} 
+                      onFriendsFavoritesSelect={() => handleViewChange('friends-favorites')}
+                      hasFriendsFavorites={friendsFavorites.size > 0}
                       uniqueEvents={uniqueEvents} 
                       language={language} 
                       translations={translations} 
@@ -2017,7 +2584,7 @@ const App = () => {
 
         {/* Main Content View */}
         <div className={`absolute inset-0 transition-all duration-500 ease-in-out ${isInitialLoad ? 'translate-y-full opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'}`}>
-          <div id="main-content-area" className={`w-full h-full overflow-y-auto p-4 sm:p-6 md:p-8 ${showStickyHeader ? 'pt-24 sm:pt-20' : ''}`}>
+           <div id="main-content-area" className={`w-full h-full overflow-y-auto p-4 sm:p-6 md:p-8 ${showStickyHeader ? (isOffline ? 'pt-32 sm:pt-28' : 'pt-24 sm:pt-20') : ''}`}>
             {renderMainContent()}
           </div>
         </div>
@@ -2027,9 +2594,65 @@ const App = () => {
       <PrivacyPolicyModal showPrivacyPolicy={showPrivacyPolicy} setShowPrivacyPolicy={setShowPrivacyPolicy} language={language} renderPrivacyPolicyContent={renderPrivacyPolicyContent} translations={translations} />
       <CustomTooltip showCustomTooltip={showCustomTooltip} customTooltipContent={customTooltipContent} customTooltipPosition={customTooltipPosition} />
       <MessageBox show={messageBoxConfig.show} title={messageBoxConfig.title} message={messageBoxConfig.message} buttons={messageBoxConfig.buttons} />
-      <FooterButtons openContentPopup={openContentPopup} language={language} translations={translations} showPopup={showPopup} showStickyHeader={showStickyHeader}/>
+      <ExportModal 
+        show={showExportModal} 
+        onClose={() => setShowExportModal(false)} 
+        onExport={handleExport}
+        language={language} 
+        translations={translations[language]} 
+        isExporting={isExporting}
+      />
+      <ImportFavoritesModal 
+        show={showImportPopup}
+        onClose={() => setShowImportPopup(false)}
+        onImport={handleImportFavorites}
+        performances={sharedFavoritesForImport}
+        language={language}
+        translations={translations[language]}
+      />
+      {exportConfig && (
+          <div style={{ position: 'absolute', left: '-9999px', top: 0, backgroundColor: '#20747f', padding: '20px' }}>
+              {exportConfig.type === 'card' ? (
+                  <TimetableDisplay
+                      ref={exportCardViewRef}
+                      isExportMode={true}
+                      displayedData={formattedData}
+                      currentView="favorites"
+                      favorites={favorites}
+                      language={language}
+                      translations={translations}
+                      toggleFavorite={() => {}}
+                      addToGoogleCalendar={() => {}}
+                      openContentPopup={() => {}}
+                      handleIconMouseEnter={() => {}}
+                      handleIconMouseLeave={() => {}}
+                      showMessageBox={() => {}}
+                  />
+              ) : (
+                  <BlockTimetable
+                      ref={exportBlockViewRef}
+                      isExportMode={true}
+                      allData={timetableData}
+                      favorites={favorites}
+                      isFavoritesView={true}
+                      language={language}
+                      translations={translations}
+                      toggleFavorite={() => {}}
+                      openContentPopup={() => {}}
+                  />
+              )}
+          </div>
+      )}
     </div>
   );
 };
+
+// De uiteindelijke App component die de ErrorBoundary om de content wikkelt
+const App = () => (
+  <ErrorBoundary>
+    <AppContent />
+  </ErrorBoundary>
+);
+
 
 export default App;
