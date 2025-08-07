@@ -1,4 +1,23 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { Client, Databases, Query } from 'appwrite';
+
+// ========= Appwrite Configuratie =========
+const APPWRITE_ENDPOINT = 'https://cloud.appwrite.io/v1';
+const APPWRITE_PROJECT_ID = '6874f0b40015fc341b14';
+const APPWRITE_DATABASE_ID = '68873afd0015cc5075e5';
+const COLLECTIONS = {
+    COMPANIES: '68873b5f0032519e7321',
+    PERFORMANCES: '68873b6500074288e73d',
+    LOCATIONS: '68878ee7000cb07ef9e7',
+    EXECUTIONS: '68878f2d0020be3a7efd',
+    EVENTS: '688798900022cbda4ec0',
+};
+
+// ========= Appwrite Client Initialisatie =========
+const client = new Client()
+    .setEndpoint(APPWRITE_ENDPOINT)
+    .setProject(APPWRITE_PROJECT_ID);
+const databases = new Databases(client);
 
 // ========= Error Boundary Component =========
 // Vangt JavaScript-fouten op om een wit scherm te voorkomen.
@@ -2264,89 +2283,140 @@ const AppContent = () => {
 
   const handleLanguageChange = () => setLanguage(prev => prev === 'nl' ? 'en' : 'nl');
 
-  const googleSheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR2IpMrUJ8Jyfq1xtIbioh7L0-9SQ4mLo_kOdLnvt2EWXNGews64jMTFHAegaAQ1ZF3pQ4HC_0Kca4D/pub?output=csv';
   const gistNotificationsUrl = 'https://ldegroen.github.io/ctf-notificaties/notifications.json'; 
 
-  const parseCsvLine = (line) => {
-    const cells = []; let inQuote = false; let currentCell = '';
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      if (char === '"' && (i === 0 || line[i - 1] !== '\\')) inQuote = !inQuote;
-      else if (char === ',' && !inQuote) { cells.push(currentCell.replace(/""/g, '"').trim()); currentCell = ''; } 
-      else currentCell += char;
-    }
-    cells.push(currentCell.replace(/""/g, '"').trim());
-    return cells;
+  // Helper function to fetch all documents from a collection, handling pagination
+  const fetchAllDocuments = async (collectionId) => {
+      let documents = [];
+      let offset = 0;
+      let response;
+      const limit = 100; // Appwrite's max limit per request
+
+      try {
+          do {
+              response = await databases.listDocuments(
+                  APPWRITE_DATABASE_ID,
+                  collectionId,
+                  [Query.limit(limit), Query.offset(offset)]
+              );
+              documents.push(...response.documents);
+              offset += limit;
+          } while (response.documents.length > 0);
+          return documents;
+      } catch (error) {
+          console.error(`Error fetching documents from ${collectionId}:`, error);
+          throw error; // Re-throw to be caught by the main fetch function
+      }
   };
 
   const fetchTimetableData = useCallback(async () => {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout
 
     try {
-        const response = await fetch(googleSheetUrl, { signal: controller.signal, cache: "no-store" });
+        // --- Stap 1: Haal alle benodigde data parallel op ---
+        const [
+            companies,
+            performances,
+            locations,
+            executions,
+            events
+        ] = await Promise.all([
+            fetchAllDocuments(COLLECTIONS.COMPANIES),
+            fetchAllDocuments(COLLECTIONS.PERFORMANCES),
+            fetchAllDocuments(COLLECTIONS.LOCATIONS),
+            fetchAllDocuments(COLLECTIONS.EXECUTIONS),
+            fetchAllDocuments(COLLECTIONS.EVENTS)
+        ]);
+
         clearTimeout(timeoutId);
 
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const csvText = await response.text();
+        // --- Stap 2: Maak 'Maps' voor snelle toegang tot data ---
+        const companiesMap = new Map(companies.map(c => [c.$id, c]));
+        const performancesMap = new Map(performances.map(p => [p.$id, p]));
+        const locationsMap = new Map(locations.map(l => [l.$id, l]));
+        const executionsMap = new Map(executions.map(e => [e.$id, e]));
 
-        const lines = csvText.split(/\r?\n/).slice(1).filter(line => line.trim() !== '');
+        // --- Stap 3: Combineer de data ---
         let allParsedData = [];
         const localEventInfoMap = {};
 
-        for (let i = 0; i < lines.length; i++) {
-            const cells = parseCsvLine(lines[i]);
-            if (cells.length < 23) continue;
+        events.forEach(eventDoc => {
+            // Populate eventInfoMap for sponsor logos and map URLs
+            localEventInfoMap[eventDoc.Name] = { // Assuming event has a 'Name' attribute
+                sponsorLogo: eventDoc.sponsorLogoUrl,
+                mapUrl: eventDoc.mapUrl,
+                dateString: null // We'll find the earliest date below
+            };
 
-            const [
-                crowd, date, time, artist, title, genre, url, artistImageUrl, 
-                event, sponsorLogoUrl, pwycLink, location, googleMapsUrl, 
-                mapNumber, mapImageUrl, wheelchair, children, dutch, english, 
-                dialogue, dining, ngt, calm
-            ] = cells.map(cell => cell || '');
+            if (eventDoc.executionIds && Array.isArray(eventDoc.executionIds)) {
+                eventDoc.executionIds.forEach(executionId => {
+                    const execution = executionsMap.get(executionId);
+                    if (!execution) return;
 
-            if (event) {
-                if (!localEventInfoMap[event]) localEventInfoMap[event] = {};
-                const itemDate = parseDateForSorting(date);
-                if (!isNaN(itemDate.getTime())) {
-                    if (!localEventInfoMap[event].dateString || itemDate < parseDateForSorting(localEventInfoMap[event].dateString)) {
-                        localEventInfoMap[event].dateString = date;
+                    const performance = performancesMap.get(execution.performanceId);
+                    if (!performance) return;
+
+                    const company = companiesMap.get(performance.companyId);
+                    const location = locationsMap.get(execution.locationId);
+                    if (!location) return;
+
+                    const dateTime = new Date(execution.DateTime);
+                    const dateString = !isNaN(dateTime.getTime()) ? `${String(dateTime.getDate()).padStart(2, '0')}-${String(dateTime.getMonth() + 1).padStart(2, '0')}-${dateTime.getFullYear()}` : 'N/A';
+                    const timeString = !isNaN(dateTime.getTime()) ? `${String(dateTime.getHours()).padStart(2, '0')}:${String(dateTime.getMinutes()).padStart(2, '0')}` : 'N/A';
+                    
+                    // Update the earliest date for the event
+                    if (!isNaN(dateTime.getTime())) {
+                       const currentEarliest = localEventInfoMap[eventDoc.Name].dateString ? parseDateForSorting(localEventInfoMap[eventDoc.Name].dateString) : null;
+                       if (!currentEarliest || dateTime < currentEarliest) {
+                           localEventInfoMap[eventDoc.Name].dateString = dateString;
+                       }
                     }
-                }
-                if (mapImageUrl && !localEventInfoMap[event].mapUrl) localEventInfoMap[event].mapUrl = mapImageUrl;
-                if (sponsorLogoUrl && !localEventInfoMap[event].sponsorLogo) localEventInfoMap[event].sponsorLogo = sponsorLogoUrl;
+
+                    allParsedData.push({
+                        id: execution.$id,
+                        date: dateString,
+                        time: timeString,
+                        artist: company ? company.Name : 'Onbekend',
+                        title: performance.Title,
+                        location: location.Name, // Assuming location has a 'Name' attribute
+                        url: performance.meerInfoUrl,
+                        event: eventDoc.Name, // Assuming event has a 'Name' attribute
+                        googleMapsUrl: location.googleMapsUrl,
+                        pwycLink: performance.pwycLink,
+                        mapNumber: location.locationNumber,
+                        mapImageUrl: eventDoc.mapUrl, // From the event
+                        genre: performance.genre,
+                        isCalmRoute: execution.quietRoute,
+                        crowdLevel: execution.expectedCrowd,
+                        artistImageUrl: performance.imageUrl || (company ? company.imageUrl : null), // Fallback logic for images
+                        safetyInfo: {
+                            wheelchairAccessible: location.isWheelchairAccessible,
+                            suitableForChildren: performance.isChildFriendly,
+                            dutchLanguage: performance.isDutchLanguage,
+                            englishLanguage: performance.isEnglishLanguage, // Assuming this exists on performance
+                            dialogueFree: performance.isDialogueFree,
+                            diningFacility: location.hasDining,
+                            hasNGT: execution.hasNgt,
+                        },
+                    });
+                });
             }
-
-            allParsedData.push({
-                id: `${event}-${date}-${time}-${artist}-${title}`,
-                date, time, artist, title, location, url, event,
-                googleMapsUrl, pwycLink, mapNumber, mapImageUrl, genre, isCalmRoute: calm.toLowerCase() === 'x',
-                crowdLevel: crowd,
-                artistImageUrl,
-                safetyInfo: {
-                    wheelchairAccessible: wheelchair.toLowerCase() === 'x',
-                    suitableForChildren: children.toLowerCase() === 'x',
-                    dutchLanguage: dutch.toLowerCase() === 'x',
-                    englishLanguage: english.toLowerCase() === 'x',
-                    dialogueFree: dialogue.toLowerCase() === 'x',
-                    diningFacility: dining.toLowerCase() === 'x',
-                    hasNGT: ngt.toLowerCase() === 'x',
-                },
-            });
-        }
+        });
         
-        const uniqueEventsForDisplay = [...new Set(allParsedData.map(item => item.event).filter(Boolean))].sort((a,b) => (parseDateForSorting(localEventInfoMap[a]?.dateString) || 0) - (parseDateForSorting(localEventInfoMap[b]?.dateString) || 0));
-
         const now = new Date();
         const cutoffTime = new Date(now.getTime() - 45 * 60 * 1000);
         const filteredDataForDisplay = allParsedData.filter(item => {
-            if (!item.date || !item.time) return true;
+            if (!item.date || !item.time || item.date === 'N/A' || item.time === 'N/A') return true;
             const perfDate = parseDateForSorting(item.date);
             if(isNaN(perfDate.getTime())) return true;
             const [h, m] = item.time.split(':');
             perfDate.setHours(h, m, 0, 0);
             return perfDate >= cutoffTime;
         });
+
+        const uniqueEventsForDisplay = [...new Set(filteredDataForDisplay.map(item => item.event).filter(Boolean))]
+            .sort((a,b) => (parseDateForSorting(localEventInfoMap[a]?.dateString) || 0) - (parseDateForSorting(localEventInfoMap[b]?.dateString) || 0));
 
         setError(null);
         setIsOffline(false);
@@ -2364,7 +2434,7 @@ const AppContent = () => {
         return filteredDataForDisplay;
 
     } catch (err) {
-        console.error("Fout bij het ophalen van gegevens:", err);
+        console.error("Fout bij het ophalen van gegevens van Appwrite:", err);
         const cached = localStorage.getItem('ctfTimetableCache');
 
         if (cached) {
@@ -2376,9 +2446,10 @@ const AppContent = () => {
                  setError(translations[language].common.errorLoading);
             }
         }
-        return timetableData;
+        return timetableData; // Return existing data on error
     }
   }, [language, translations, timetableData]);
+
 
   useEffect(() => {
     const init = async () => {
